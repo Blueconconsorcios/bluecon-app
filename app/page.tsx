@@ -1,9 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabase";
 
 export default function Home() {
+  const router = useRouter();
+const [verificandoLogin, setVerificandoLogin] = useState(true);
   const [menu, setMenu] = useState("Dashboard");
   const [mensagem, setMensagem] = useState("");
   const [clientes, setClientes] = useState<any[]>([]);
@@ -65,7 +68,7 @@ export default function Home() {
   setClientes(data || []);
 }
 
-useEffect(() => {carregarClientes();}, []);
+useEffect(() => { async function verificarUsuario() { const { data: { session }, } = await supabase.auth.getSession(); if (!session) { router.replace("/login"); return; } setVerificandoLogin(false); await carregarClientes(); } verificarUsuario(); }, [router]);
 
   async function salvarCliente() {
     setMensagem("");
@@ -126,6 +129,21 @@ if (clienteEditando) {
       vigencia_fim: "",
     });
   }
+if (verificandoLogin) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-100">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-slate-950">
+            BLUECON
+          </h1>
+
+          <p className="mt-2 text-slate-500">
+            Verificando acesso...
+          </p>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-slate-100 text-slate-900">
@@ -158,9 +176,22 @@ if (clienteEditando) {
             ))}
           </nav>
 
-          <div className="border-t border-slate-800 p-4 text-xs text-slate-500">
-            Bluecon © 2026
-          </div>
+          <div className="border-t border-slate-800 p-4">
+  <button
+    onClick={async () => {
+      await supabase.auth.signOut();
+      router.replace("/login");
+    }}
+    className="mb-3 w-full rounded-lg px-4 py-3 text-left text-slate-300 hover:bg-slate-800 hover:text-white"
+  >
+    🚪 Sair
+  </button>
+
+  <p className="text-xs text-slate-500">
+    Bluecon © 2026
+  </p>
+</div>
+
         </aside>
 
         <section className="flex-1">
