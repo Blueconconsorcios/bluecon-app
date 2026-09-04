@@ -869,10 +869,61 @@ if (verificandoLogin) {
 
         <button
           onClick={() => {
-            alert(
-              "A geração do PDF de clientes será configurada na próxima etapa."
-            );
-          }}
+  const inicio = (
+    document.getElementById(
+      "relatorioClientesInicio"
+    ) as HTMLInputElement
+  ).value;
+
+  const fim = (
+    document.getElementById(
+      "relatorioClientesFim"
+    ) as HTMLInputElement
+  ).value;
+
+  if (!inicio || !fim) {
+    alert("Selecione a data inicial e a data final.");
+    return;
+  }
+
+  const clientesPeriodo = clientes.filter((cliente) => {
+    if (!cliente.vigencia_inicio) return false;
+
+    return (
+      cliente.vigencia_inicio >= inicio &&
+      cliente.vigencia_inicio <= fim
+    );
+  });
+
+  const pdf = new jsPDF();
+
+  pdf.setFontSize(18);
+  pdf.text("SAROKA SEGUROS & BLUECON", 14, 20);
+
+  pdf.setFontSize(12);
+  pdf.text("Relatório de Clientes", 14, 30);
+
+  pdf.setFontSize(10);
+  pdf.text(
+    `Período: ${inicio.split("-").reverse().join("/")} a ${fim
+      .split("-")
+      .reverse()
+      .join("/")}`,
+    14,
+    38
+  );
+
+  autoTable(pdf, {
+    startY: 45,
+    head: [["Cliente", "Telefone"]],
+    body: clientesPeriodo.map((cliente) => [
+      cliente.nome || "",
+      cliente.telefone || "Não informado",
+    ]),
+  });
+
+  pdf.save("relatorio-clientes.pdf");
+}}
           className="mt-5 w-full rounded-lg bg-slate-950 px-5 py-3 font-medium text-white hover:bg-slate-800"
         >
           📄 Baixar PDF de Clientes
