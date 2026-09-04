@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabase";
 import { PieChart, Pie, Cell, Tooltip, Legend } from "recharts";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+
 
 export default function Home() {
   const router = useRouter();
@@ -50,7 +53,7 @@ const [verificandoLogin, setVerificandoLogin] = useState(true);
     "Renovações",
     "Comissões",
     "Relatórios",
-    "Configurações",
+    "Contato",
   ];
 
   function atualizarCampo(
@@ -539,7 +542,7 @@ if (verificandoLogin) {
   "Renovações",
   "Comissões",
   "Relatórios",
-  "Configurações",
+  "Contato",
 ].includes(menu) && (
   <div className="rounded-2xl bg-white p-8">
     {menu === "Renovações" ? (
@@ -693,38 +696,199 @@ if (verificandoLogin) {
   </div>
 </div>
       </div>
-    ) : (
-      <div className="text-center">
-        <h3 className="text-xl font-semibold">{menu}</h3>
+    ) : menu === "Relatórios" ? (
+  <div>
+    <h3 className="text-xl font-semibold">
+      Relatórios 📊
+    </h3>
 
-        <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-  <div className="rounded-xl bg-slate-50 p-5">
-    <p className="text-sm text-slate-500">Total de clientes</p>
-    <p className="mt-2 text-2xl font-bold">{clientes.length}</p>
-  </div>
-
-  <div className="rounded-xl bg-slate-50 p-5">
-    <p className="text-sm text-slate-500">Total de prêmios</p>
-    <p className="mt-2 text-2xl font-bold">
-      R$ {clientes.reduce((total, cliente) =>
-        total + Number(cliente.premio_liquido || 0), 0
-      ).toFixed(2)}
+    <p className="mt-1 text-slate-500">
+      Gere relatórios da sua corretora por período.
     </p>
-  </div>
 
-  <div className="rounded-xl bg-slate-50 p-5">
-    <p className="text-sm text-slate-500">Total de comissões</p>
-    <p className="mt-2 text-2xl font-bold">
-      R$ {clientes.reduce((total, cliente) =>
-        total +
+    <div className="mt-6 grid gap-6 md:grid-cols-2">
+
+      <div className="rounded-xl border bg-slate-50 p-5">
+        <h4 className="text-lg font-semibold">
+          Relatório de Comissões
+        </h4>
+
+        <p className="mt-1 text-sm text-slate-500">
+          Consulte o total de comissões por período.
+        </p>
+
+        <div className="mt-4">
+          <label className="mb-1 block text-sm">
+            Data inicial
+          </label>
+
+          <input
+            type="date"
+            id="relatorioComissaoInicio"
+            className="w-full rounded-lg border bg-white p-3"
+          />
+        </div>
+
+        <div className="mt-4">
+          <label className="mb-1 block text-sm">
+            Data final
+          </label>
+
+          <input
+            type="date"
+            id="relatorioComissaoFim"
+            className="w-full rounded-lg border bg-white p-3"
+          />
+        </div>
+
+        <button
+          onClick={() => {
+  const inicio = (
+    document.getElementById(
+      "relatorioComissaoInicio"
+    ) as HTMLInputElement
+  ).value;
+
+  const fim = (
+    document.getElementById(
+      "relatorioComissaoFim"
+    ) as HTMLInputElement
+  ).value;
+
+  if (!inicio || !fim) {
+    alert("Selecione a data inicial e a data final.");
+    return;
+  }
+
+  const clientesPeriodo = clientes.filter((cliente) => {
+    if (!cliente.vigencia_inicio) return false;
+
+    return (
+      cliente.vigencia_inicio >= inicio &&
+      cliente.vigencia_inicio <= fim
+    );
+  });
+
+  const totalComissoes = clientesPeriodo.reduce(
+    (total, cliente) =>
+      total +
+      (Number(cliente.premio_liquido || 0) *
+        Number(cliente.percentual_comissao || 0)) /
+        100,
+    0
+  );
+
+  const pdf = new jsPDF();
+
+  pdf.setFontSize(18);
+  pdf.text("SAROKA SEGUROS & BLUECON", 14, 20);
+
+  pdf.setFontSize(12);
+  pdf.text("Relatório de Comissões", 14, 30);
+
+  pdf.setFontSize(10);
+  pdf.text(
+    `Período: ${inicio.split("-").reverse().join("/")} a ${fim
+      .split("-")
+      .reverse()
+      .join("/")}`,
+    14,
+    38
+  );
+
+  autoTable(pdf, {
+    startY: 45,
+    head: [["Cliente", "Seguradora", "Prêmio", "Comissão"]],
+    body: clientesPeriodo.map((cliente) => {
+      const comissao =
         (Number(cliente.premio_liquido || 0) *
-          Number(cliente.percentual_comissao || 0)) / 100, 0
-      ).toFixed(2)}
-    </p>
-  </div>
-</div>
+          Number(cliente.percentual_comissao || 0)) /
+        100;
+
+      return [
+        cliente.nome || "",
+        cliente.seguradora || "Não informada",
+        `R$ ${Number(
+          cliente.premio_liquido || 0
+        ).toFixed(2)}`,
+        `R$ ${comissao.toFixed(2)}`,
+      ];
+    }),
+  });
+
+  const paginaFinal =
+    (pdf as any).lastAutoTable.finalY + 10;
+
+  pdf.setFontSize(12);
+  pdf.text(
+    `Total de comissões: R$ ${totalComissoes.toFixed(2)}`,
+    14,
+    paginaFinal
+  );
+
+  pdf.save("relatorio-comissoes.pdf");
+}}
+          className="mt-5 w-full rounded-lg bg-slate-950 px-5 py-3 font-medium text-white hover:bg-slate-800"
+        >
+          📄 Baixar PDF de Comissões
+        </button>
       </div>
-    )}
+
+      <div className="rounded-xl border bg-slate-50 p-5">
+        <h4 className="text-lg font-semibold">
+          Relatório de Clientes
+        </h4>
+
+        <p className="mt-1 text-sm text-slate-500">
+          Liste os clientes cadastrados em determinado período.
+        </p>
+
+        <div className="mt-4">
+          <label className="mb-1 block text-sm">
+            Data inicial
+          </label>
+
+          <input
+            type="date"
+            id="relatorioClientesInicio"
+            className="w-full rounded-lg border bg-white p-3"
+          />
+        </div>
+
+        <div className="mt-4">
+          <label className="mb-1 block text-sm">
+            Data final
+          </label>
+
+          <input
+            type="date"
+            id="relatorioClientesFim"
+            className="w-full rounded-lg border bg-white p-3"
+          />
+        </div>
+
+        <button
+          onClick={() => {
+            alert(
+              "A geração do PDF de clientes será configurada na próxima etapa."
+            );
+          }}
+          className="mt-5 w-full rounded-lg bg-slate-950 px-5 py-3 font-medium text-white hover:bg-slate-800"
+        >
+          📄 Baixar PDF de Clientes
+        </button>
+      </div>
+
+    </div>
+  </div>
+) : (
+  <div className="text-center">
+    <h3 className="text-xl font-semibold">
+      {menu}
+    </h3>
+  </div>
+)}
+
   </div>
 )}
 
