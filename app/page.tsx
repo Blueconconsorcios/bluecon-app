@@ -343,6 +343,109 @@ if (verificandoLogin) {
 </div>
 
 </div>
+<div className="mt-6 rounded-2xl bg-white p-5 shadow-sm">
+  <h4 className="text-lg font-semibold">
+    🎂 Aniversariantes
+  </h4>
+
+  <p className="mt-1 text-sm text-slate-500">
+    Clientes que fazem aniversário nos próximos 7 dias.
+  </p>
+
+  {(() => {
+    const aniversariantes = clientes
+      .filter((cliente) => {
+        if (!cliente.data_nascimento) return false;
+
+        const aniversario = calcularAniversario(
+          cliente.data_nascimento
+        );
+
+        return aniversario && aniversario.dias <= 7;
+      })
+      .sort((a, b) => {
+        const aniversarioA = calcularAniversario(
+          a.data_nascimento
+        );
+
+        const aniversarioB = calcularAniversario(
+          b.data_nascimento
+        );
+
+        return (
+          (aniversarioA?.dias ?? 999) -
+          (aniversarioB?.dias ?? 999)
+        );
+      });
+
+    if (aniversariantes.length === 0) {
+      return (
+        <p className="mt-4 text-sm text-slate-500">
+          Nenhum aniversário nos próximos 7 dias. 🎉
+        </p>
+      );
+    }
+
+    return (
+      <div className="mt-4 space-y-3">
+        {aniversariantes.map((cliente) => {
+          const aniversario = calcularAniversario(
+            cliente.data_nascimento
+          );
+
+          if (!aniversario) return null;
+
+          return (
+            <div
+              key={cliente.id}
+              className="flex items-center justify-between rounded-xl border p-3"
+            >
+              <div>
+                <p className="font-medium">
+                  {cliente.nome}
+                </p>
+
+                <p className="text-sm text-slate-500">
+                  🎂{" "}
+                  {String(aniversario.dia).padStart(2, "0")}/
+                  {String(aniversario.mes).padStart(2, "0")}
+                  {" • "}
+                  {aniversario.dias === 0
+                    ? "Aniversário hoje! 🎉"
+                    : aniversario.dias === 1
+                    ? "Amanhã"
+                    : `em ${aniversario.dias} dias`}
+                </p>
+              </div>
+
+              {cliente.telefone && (
+                <a
+                  href={`https://wa.me/55${cliente.telefone.replace(
+                    /\D/g,
+                    ""
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-green-500 text-white hover:bg-green-600"
+                  title="Conversar pelo WhatsApp"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    className="h-4 w-4"
+                  >
+                    <path d="M12.04 2a9.93 9.93 0 0 0-8.55 15.03L2 22l5.13-1.34A9.93 9.93 0 1 0 12.04 2Zm0 17.93a8 8 0 0 1-4.08-1.12l-.29-.17-3.05.8.81-2.97-.19-.3a8 8 0 1 1 6.8 3.76Zm4.38-5.99c-.24-.12-1.43-.7-1.65-.78-.22-.08-.38-.12-.54.12-.16.24-.62.78-.76.94-.14.16-.28.18-.52.06-.24-.12-1.02-.38-1.94-1.2-.72-.64-1.2-1.43-1.34-1.67-.14-.24-.02-.37.1-.49.11-.11.24-.28.36-.42.12-.16.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.54-1.3-.74-1.78-.2-.47-.4-.41-.54-.42h-.46c-.16 0-.42.06-.64.3-.22.24-.84.82-.84 2s.86 2.32.98 2.48c.12.16 1.69 2.58 4.1 3.62.57.25 1.02.4 1.37.51.58.18 1.1.16 1.51.1.46-.07 1.43-.58 1.63-1.14.2-.56.2-1.04.14-1.14-.06-.1-.22-.16-.46-.28Z" />
+                  </svg>
+                </a>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  })()}
+</div>
               </div>
             )}
 
