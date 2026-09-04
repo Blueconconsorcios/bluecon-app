@@ -881,6 +881,103 @@ if (verificandoLogin) {
 
     </div>
   </div>
+) : menu === "Contato" ? (
+  <div className="max-w-4xl">
+    <h3 className="text-2xl font-bold text-slate-900">
+      Contato 📞
+    </h3>
+
+    <p className="mt-1 text-slate-500">
+      Entre em contato com a SAROKA SEGUROS & BLUECON.
+    </p>
+
+    <div className="mt-6 grid gap-5 md:grid-cols-2">
+
+      <div className="rounded-2xl bg-slate-50 p-6">
+        <p className="text-sm font-medium text-slate-500">
+          📍 Endereço
+        </p>
+
+        <p className="mt-2 font-semibold text-slate-900">
+          Av. Inconfidência Mineira, 138
+        </p>
+
+        <p className="text-slate-600">
+          Sala 12
+        </p>
+
+        <a
+          href="https://share.google/cKwq3yIPoXt7yteLC"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-4 inline-block rounded-lg bg-slate-950 px-5 py-3 font-medium text-white hover:bg-slate-800"
+        >
+          🗺️ Abrir no Google Maps
+        </a>
+      </div>
+
+      <div className="rounded-2xl bg-slate-50 p-6">
+        <p className="text-sm font-medium text-slate-500">
+          ☎️ Telefone
+        </p>
+
+        <a
+          href="tel:+551129169557"
+          className="mt-2 block font-semibold text-blue-600 hover:underline"
+        >
+          (11) 2916-9557
+        </a>
+      </div>
+
+      <div className="rounded-2xl bg-slate-50 p-6">
+        <p className="text-sm font-medium text-slate-500">
+          💬 WhatsApp
+        </p>
+
+        <a
+          href="https://wa.me/5511940143313"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-2 block font-semibold text-blue-600 hover:underline"
+        >
+          (11) 94014-3313
+        </a>
+
+        <a
+          href="https://wa.me/5511941053336"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-1 block font-semibold text-blue-600 hover:underline"
+        >
+          (11) 94105-3336
+        </a>
+      </div>
+
+      <div className="rounded-2xl bg-slate-50 p-6">
+        <p className="text-sm font-medium text-slate-500">
+          📧 E-mail
+        </p>
+
+        <a
+          href="mailto:Blueconfinanciamentos@outlook.com.br"
+          className="mt-2 block break-all font-semibold text-blue-600 hover:underline"
+        >
+          Blueconfinanciamentos@outlook.com.br
+        </a>
+      </div>
+
+      <div className="rounded-2xl bg-slate-50 p-6 md:col-span-2">
+        <p className="text-sm font-medium text-slate-500">
+          🏢 CNPJ
+        </p>
+
+        <p className="mt-2 font-semibold text-slate-900">
+          53.148.614/0001-81
+        </p>
+      </div>
+
+    </div>
+  </div>
 ) : (
   <div className="text-center">
     <h3 className="text-xl font-semibold">
