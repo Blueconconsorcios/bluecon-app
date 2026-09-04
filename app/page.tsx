@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabase";
+import { PieChart, Pie, Cell, Tooltip, Legend } from "recharts";
 
 export default function Home() {
   const router = useRouter();
@@ -27,6 +28,19 @@ const [verificandoLogin, setVerificandoLogin] = useState(true);
   (Number(form.premio_liquido || 0) *
     Number(form.percentual_comissao || 0)) /
   100;
+  const dadosSeguradoras = Object.entries(
+  clientes.reduce((acc: any, cliente) => {
+    const seguradora =
+      cliente.seguradora || "Não informada";
+
+    acc[seguradora] = (acc[seguradora] || 0) + 1;
+
+    return acc;
+  }, {})
+).map(([name, value]) => ({
+  name,
+  value,
+}));
 
 
   const menuItems = [
@@ -152,7 +166,7 @@ if (verificandoLogin) {
         <aside className="hidden w-64 bg-slate-950 text-white md:flex md:flex-col">
           <div className="border-b border-slate-800 p-6">
             <h1 className="text-2xl font-bold">
-              BLUECON
+              SAROKA SEGUROS & BLUECON
             </h1>
 
             <p className="mt-1 text-sm text-slate-400">
@@ -219,7 +233,77 @@ if (verificandoLogin) {
                 </p>
 
                 <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="rounded-2xl bg-white p-5 shadow-sm">
+  <p className="text-sm text-slate-500">
+    Apólices emitidas
+  </p>
+  <p className="mt-2 text-3xl font-bold text-slate-900">
+    {clientes.length}
+  </p>
+</div>
               </div>
+              <div className="rounded-2xl bg-white p-5 shadow-sm">
+  <p className="text-sm text-slate-500">
+    Renovações nos próximos 30 dias
+  </p>
+
+  <p className="mt-2 text-3xl font-bold text-slate-900">
+    {(() => {
+      const hoje = new Date();
+      const limite = new Date();
+      limite.setDate(hoje.getDate() + 30);
+
+      return clientes.filter((cliente) => {
+        if (!cliente.vigencia_fim) return false;
+
+        const partes = cliente.vigencia_fim.split("-");
+        const vencimento = new Date(
+          Number(partes[0]),
+          Number(partes[1]) - 1,
+          Number(partes[2])
+        );
+
+        return vencimento >= hoje && vencimento <= limite;
+      }).length;
+    })()}
+  </p>
+  <div className="rounded-2xl bg-white p-5 shadow-sm">
+  <h4 className="mb-4 text-lg font-semibold">
+    Seguradoras vendidas
+  </h4>
+
+  {dadosSeguradoras.length === 0 ? (
+    <p className="text-sm text-slate-500">
+      Cadastre uma apólice para visualizar o gráfico.
+    </p>
+  ) : (
+    <div className="flex justify-center">
+      <PieChart width={320} height={280}>
+        <Pie
+          data={dadosSeguradoras}
+          dataKey="value"
+          nameKey="name"
+          cx="50%"
+          cy="50%"
+          outerRadius={90}
+          label
+        >
+          {dadosSeguradoras.map((entry, index) => (
+            <Cell
+              key={`cell-${index}`}
+              fill={`hsl(${index * 60}, 70%, 55%)`}
+            />
+          ))}
+        </Pie>
+
+        <Tooltip />
+        <Legend />
+      </PieChart>
+    </div>
+  )}
+</div>
+
+</div>
               </div>
             )}
 
