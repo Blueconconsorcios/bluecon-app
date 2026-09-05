@@ -14,6 +14,7 @@ const [verificandoLogin, setVerificandoLogin] = useState(true);
   const [menu, setMenu] = useState("Dashboard");
   const [mensagem, setMensagem] = useState("");
   const [clientes, setClientes] = useState<any[]>([]);
+  const [totalApolices, setTotalApolices] = useState(0);
   const [busca, setBusca] = useState("");
   const [clienteEditando, setClienteEditando] = useState<any | null>(null);
 
@@ -117,6 +118,16 @@ const calcularAniversario = (dataNascimento: string) => {
   }
 
   setClientes(data || []);
+  const { count, error: erroApolices } = await supabase
+    .from("apolices")
+    .select("*", { count: "exact", head: true });
+
+  if (erroApolices) {
+    console.error("Erro ao contar apólices:", erroApolices);
+    return;
+  }
+
+  setTotalApolices(count || 0);
 }
 
 useEffect(() => { async function verificarUsuario() { const { data: { session }, } = await supabase.auth.getSession(); if (!session) { router.replace("/login"); return; } setVerificandoLogin(false); await carregarClientes(); } verificarUsuario(); }, [router]);
@@ -182,6 +193,90 @@ if (clienteEditando) {
       vigencia_fim: "",
     });
   }
+  async function renovarApolice() {
+  setMensagem("");
+
+  if (!clienteEditando) {
+    setMensagem("Nenhum cliente selecionado para renovação.");
+    return;
+  }
+
+  if (!form.premio_liquido || !form.percentual_comissao) {
+    setMensagem("Preencha o prêmio líquido e a comissão.");
+    return;
+  }
+
+  if (!form.vigencia_inicio || !form.vigencia_fim) {
+    setMensagem("Preencha as datas de início e fim da nova apólice.");
+    return;
+  }
+
+  const novaApolice = {
+    cliente_id: clienteEditando.id,
+    seguradora: form.seguradora,
+    premio_liquido: Number(form.premio_liquido || 0),
+    percentual_comissao: Number(form.percentual_comissao || 0),
+    vigencia_inicio: form.vigencia_inicio,
+    vigencia_fim: form.vigencia_fim,
+  };
+
+  const { error: erroApolice } = await supabase
+    .from("apolices")
+    .insert([novaApolice]);
+
+  if (erroApolice) {
+    console.error("ERRO RENOVAÇÃO:", {
+  message: erroApolice?.message,
+  details: erroApolice?.details,
+  hint: erroApolice?.hint,
+  code: erroApolice?.code,
+});
+    setMensagem(
+      "Erro ao registrar a renovação: " + erroApolice.message
+    );
+    return;
+  }
+
+  const { error: erroCliente } = await supabase
+    .from("clientes")
+    .update({
+      seguradora: form.seguradora,
+      premio_liquido: Number(form.premio_liquido || 0),
+      percentual_comissao: Number(form.percentual_comissao || 0),
+      vigencia_inicio: form.vigencia_inicio,
+      vigencia_fim: form.vigencia_fim,
+    })
+    .eq("id", clienteEditando.id);
+
+  if (erroCliente) {
+    console.error(erroCliente);
+    setMensagem(
+      "A nova apólice foi registrada, mas houve erro ao atualizar o cliente: " +
+        erroCliente.message
+    );
+    return;
+  }
+
+  setMensagem("✅ Apólice renovada com sucesso!");
+
+  setClienteEditando(null);
+
+  await carregarClientes();
+
+  setForm({
+    nome: "",
+    cpf: "",
+    telefone: "",
+    data_nascimento: "",
+    seguradora: "",
+    premio_liquido: "",
+    percentual_comissao: "",
+    vigencia_inicio: "",
+    vigencia_fim: "",
+  });
+
+  setMenu("Clientes");
+}
 if (verificandoLogin) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-100">
@@ -277,7 +372,7 @@ if (verificandoLogin) {
     Apólices emitidas
   </p>
   <p className="mt-2 text-3xl font-bold text-slate-900">
-    {clientes.length}
+    {totalApolices}
   </p>
 </div>
               </div>
@@ -567,6 +662,15 @@ if (verificandoLogin) {
 >
   ✏️ Editar
 </button>
+<button
+  onClick={() => {
+    setClienteEditando(cliente);
+    setMenu("Renovar");
+  }}
+  className="mt-2 ml-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+>
+  🔄 Renovar
+</button>
           </div>
         </div>
       </div>
@@ -724,7 +828,113 @@ if (verificandoLogin) {
 
               </div>
             )}
+{menu === "Renovar" && clienteEditando && (
+  <div className="rounded-2xl bg-white p-6 shadow">
+    <h2 className="mb-2 text-2xl font-bold">
+      🔄 Renovar Apólice
+    </h2>
 
+    <p className="mb-6 text-gray-600">
+      Cliente: <strong>{clienteEditando.nome}</strong>
+    </p>
+
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+
+      <div>
+        <label className="mb-1 block text-sm font-medium">
+          Seguradora
+        </label>
+        <input
+          type="text"
+          value={form.seguradora}
+          onChange={(e) =>
+            setForm({ ...form, seguradora: e.target.value })
+          }
+          className="w-full rounded-lg border p-3"
+          placeholder="Digite a seguradora"
+        />
+      </div>
+
+      <div>
+        <label className="mb-1 block text-sm font-medium">
+          Prêmio líquido
+        </label>
+        <input
+          type="number"
+          value={form.premio_liquido}
+          onChange={(e) =>
+            setForm({ ...form, premio_liquido: e.target.value })
+          }
+          className="w-full rounded-lg border p-3"
+          placeholder="0,00"
+        />
+      </div>
+
+      <div>
+        <label className="mb-1 block text-sm font-medium">
+          Comissão (%)
+        </label>
+        <input
+          type="number"
+          value={form.percentual_comissao}
+          onChange={(e) =>
+            setForm({ ...form, percentual_comissao: e.target.value })
+          }
+          className="w-full rounded-lg border p-3"
+          placeholder="Ex.: 20"
+        />
+      </div>
+
+      <div>
+        <label className="mb-1 block text-sm font-medium">
+          Início da nova vigência
+        </label>
+        <input
+          type="date"
+          value={form.vigencia_inicio}
+          onChange={(e) =>
+            setForm({ ...form, vigencia_inicio: e.target.value })
+          }
+          className="w-full rounded-lg border p-3"
+        />
+      </div>
+
+      <div>
+        <label className="mb-1 block text-sm font-medium">
+          Fim da nova vigência
+        </label>
+        <input
+          type="date"
+          value={form.vigencia_fim}
+          onChange={(e) =>
+            setForm({ ...form, vigencia_fim: e.target.value })
+          }
+          className="w-full rounded-lg border p-3"
+        />
+      </div>
+
+    </div>
+
+    <div className="mt-6 flex gap-3">
+      <button
+        onClick={renovarApolice}
+        className="rounded-lg bg-green-600 px-6 py-3 font-medium text-white hover:bg-green-700"
+      >
+        ✅ Confirmar renovação
+      </button>
+
+      <button
+        onClick={() => {
+          setClienteEditando(null);
+          setMenu("Clientes");
+        }}
+        className="rounded-lg bg-gray-200 px-6 py-3 font-medium text-gray-700 hover:bg-gray-300"
+      >
+        Cancelar
+      </button>
+    </div>
+  </div>
+)}
             {[
   "Renovações",
   "Comissões",
