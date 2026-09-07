@@ -11,6 +11,8 @@ export default function Login() {
   const [senha, setSenha] = useState("");
   const [erro, setErro] = useState("");
   const [carregando, setCarregando] = useState(false);
+  const [modoCadastro, setModoCadastro] = useState(false);
+  const [nomeEmpresa, setNomeEmpresa] = useState("");
 
   async function entrar(e: React.FormEvent) {
     e.preventDefault();
@@ -31,6 +33,55 @@ export default function Login() {
 
     router.push("/");
   }
+async function cadastrar(e: React.FormEvent) {
+    e.preventDefault();
+
+    setErro("");
+
+    if (!nomeEmpresa.trim()) {
+      setErro("Informe o nome da empresa ou corretora.");
+      return;
+    }
+
+    if (senha.length < 6) {
+      setErro("A senha deve ter pelo menos 6 caracteres.");
+      return;
+    }
+
+    setCarregando(true);
+
+    const { data, error } = await supabase.auth.signUp({
+  email,
+  password: senha,
+  options: {
+    data: {
+      nome_empresa: nomeEmpresa,
+    },
+  },
+});
+
+    if (error) {
+      setErro(error.message);
+      setCarregando(false);
+      return;
+    }
+
+    if (!data.user) {
+      setErro("Não foi possível criar o usuário.");
+      setCarregando(false);
+      return;
+    }
+
+    if (!data.session) {
+  setErro(
+    "Conta criada. Verifique seu e-mail para confirmar o cadastro e depois faça login."
+  );
+  setCarregando(false);
+  return;
+}
+
+router.push("/");
+  }
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
@@ -46,8 +97,26 @@ export default function Login() {
           </p>
         </div>
 
-        <form onSubmit={entrar} className="space-y-5">
+        <form
+  onSubmit={modoCadastro ? cadastrar : entrar}
+  className="space-y-5"
+>
+{modoCadastro && (
+  <div>
+    <label className="mb-2 block text-sm font-medium text-slate-700">
+      Nome da empresa ou corretora
+    </label>
 
+    <input
+      type="text"
+      value={nomeEmpresa}
+      onChange={(e) => setNomeEmpresa(e.target.value)}
+      placeholder="Ex.: Saroka Corretora de Seguros"
+      required
+      className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500"
+    />
+  </div>
+)}
           <div>
             <label className="mb-2 block text-sm font-medium text-slate-700">
               E-mail
@@ -89,11 +158,29 @@ export default function Login() {
             disabled={carregando}
             className="w-full rounded-xl bg-slate-950 px-5 py-3 font-medium text-white hover:bg-slate-800 disabled:opacity-50"
           >
-            {carregando ? "Entrando..." : "Entrar"}
+            {carregando
+  ? modoCadastro
+    ? "Criando conta..."
+    : "Entrando..."
+  : modoCadastro
+  ? "Criar minha conta"
+  : "Entrar"}
           </button>
 
         </form>
-      </div>
+        <button
+  type="button"
+  onClick={() => {
+    setModoCadastro(!modoCadastro);
+    setErro("");
+  }}
+  className="mt-4 w-full text-sm font-medium text-blue-600 hover:text-blue-800"
+>
+  {modoCadastro
+    ? "Já tenho uma conta — Entrar"
+    : "Ainda não tenho conta — Criar minha conta"}
+</button>
+      </div> 
     </main>
   );
 }
