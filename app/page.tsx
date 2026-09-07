@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "../lib/supabase";
+import { createClient } from "../lib/supabase";
 import { PieChart, Pie, Cell, Tooltip, Legend } from "recharts";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
 
 export default function Home() {
+  const supabase = createClient();
   const router = useRouter();
 const [verificandoLogin, setVerificandoLogin] = useState(true);
   const [menu, setMenu] = useState("Dashboard");
@@ -18,6 +19,8 @@ const [verificandoLogin, setVerificandoLogin] = useState(true);
   const [busca, setBusca] = useState("");
   const [clienteEditando, setClienteEditando] = useState<any | null>(null);
   const [empresaNome, setEmpresaNome] = useState("Minha Empresa");
+  const [assinaturaAtiva, setAssinaturaAtiva] = useState<boolean | null>(null);
+  const [dadosAssinatura, setDadosAssinatura] = useState<any | null>(null);
 
   const [form, setForm] = useState({
   nome: "",
@@ -171,6 +174,24 @@ useEffect(() => {
       router.replace("/login");
       return;
     }
+
+    const { data: assinatura, error: erroAssinatura } =
+  await supabase.rpc("minha_assinatura_ativa");
+
+console.log("🔐 Assinatura ativa:", assinatura);
+console.log("🔐 Erro ao verificar assinatura:", erroAssinatura);
+
+setAssinaturaAtiva(assinatura === true);
+
+const { data: dados, error: erroDadosAssinatura } =
+  await supabase.rpc("minha_assinatura");
+
+console.log("📋 Dados da assinatura:", dados);
+console.log("📋 Erro ao buscar dados da assinatura:", erroDadosAssinatura);
+
+if (!erroDadosAssinatura && dados && dados.length > 0) {
+  setDadosAssinatura(dados[0]);
+}
 
     await carregarEmpresa();
     await carregarClientes();
@@ -391,7 +412,7 @@ const { error: erroApolice } = await supabase
   setMenu("Clientes");
 }
 if (verificandoLogin) {
-    return (
+        return (
       <main className="flex min-h-screen items-center justify-center bg-slate-100">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-slate-950">
@@ -401,6 +422,43 @@ if (verificandoLogin) {
           <p className="mt-2 text-slate-500">
             Verificando acesso...
           </p>
+        </div>
+      </main>
+    );
+  }
+
+  if (assinaturaAtiva === false) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
+        <div className="w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-lg">
+          <h1 className="text-2xl font-bold text-slate-950">
+            Assinatura necessária
+          </h1>
+
+          <p className="mt-3 text-slate-600">
+            Sua assinatura ou período de teste não está ativo no momento.
+          </p>
+
+          <p className="mt-2 text-slate-600">
+            Para continuar utilizando o CRM, ative seu plano.
+          </p>
+
+          <button
+  onClick={() => router.push("/assinatura")}
+  className="mt-6 w-full rounded-lg bg-slate-950 px-4 py-3 font-semibold text-white hover:bg-slate-800"
+>
+  Ativar assinatura
+</button>
+
+          <button
+            onClick={async () => {
+              await supabase.auth.signOut();
+              router.replace("/login");
+            }}
+            className="mt-3 w-full rounded-lg px-4 py-3 text-slate-600 hover:bg-slate-100"
+          >
+            Sair
+          </button>
         </div>
       </main>
     );
@@ -478,6 +536,50 @@ if (verificandoLogin) {
     <p className="mt-1 text-slate-500">
       Aqui está o resumo da sua corretora.
     </p>
+    {dadosAssinatura && (
+  <div className="mt-6 rounded-2xl bg-white p-5 shadow-sm">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <p className="text-sm text-slate-500">
+          Seu plano
+        </p>
+
+        <p className="mt-1 text-xl font-bold text-slate-900">
+          {dadosAssinatura.plano}
+        </p>
+
+        <p className="mt-1 text-slate-600">
+          R$ {Number(dadosAssinatura.valor_mensal).toFixed(2).replace(".", ",")}
+          /mês
+        </p>
+      </div>
+
+      <div className="rounded-xl bg-slate-100 px-4 py-3 text-center">
+        <p className="text-sm font-semibold text-slate-700">
+          🎁 Teste grátis
+        </p>
+
+        <p className="mt-1 text-2xl font-bold text-slate-900">
+          {dadosAssinatura.dias_restantes}
+        </p>
+
+        <p className="text-xs text-slate-500">
+          dias restantes
+        </p>
+        <p className="mt-1 text-xs text-slate-500">
+  Termina em{" "}
+  {new Date(dadosAssinatura.trial_ate).toLocaleDateString("pt-BR")}
+</p>
+<button
+  onClick={() => router.push("/assinatura")}
+  className="mt-3 w-full rounded-lg bg-slate-950 px-4 py-2 font-semibold text-white hover:bg-slate-800"
+>
+  Assinar agora
+</button>
+      </div>
+    </div>
+  </div>
+)}
 
                 
 

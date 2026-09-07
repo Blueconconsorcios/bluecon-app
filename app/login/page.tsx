@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "../../lib/supabase";
+import { createClient } from "../../lib/supabase";
+
 
 export default function Login() {
   const router = useRouter();
@@ -19,6 +20,8 @@ export default function Login() {
 
     setErro("");
     setCarregando(true);
+
+    const supabase = createClient();
 
     const { error } = await supabase.auth.signInWithPassword({
       email,
@@ -49,7 +52,7 @@ async function cadastrar(e: React.FormEvent) {
     }
 
     setCarregando(true);
-
+const supabase = createClient();
     const { data, error } = await supabase.auth.signUp({
   email,
   password: senha,
