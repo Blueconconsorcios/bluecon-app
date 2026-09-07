@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "../../../../lib/supabase/server";
 
 export async function POST() {
-  const chave = process.env.ASAAS_API_KEY;
+  const chave = process.env.ASAAS_API_KEY?.replace(/\\\$/g, "$");
 
   if (!chave) {
     return NextResponse.json(
