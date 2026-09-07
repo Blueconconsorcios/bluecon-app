@@ -17,6 +17,7 @@ const [verificandoLogin, setVerificandoLogin] = useState(true);
   const [totalApolices, setTotalApolices] = useState(0);
   const [busca, setBusca] = useState("");
   const [clienteEditando, setClienteEditando] = useState<any | null>(null);
+  const [empresaNome, setEmpresaNome] = useState("Minha Empresa");
 
   const [form, setForm] = useState({
   nome: "",
@@ -88,7 +89,7 @@ const calcularAniversario = (dataNascimento: string) => {
     "Renovações",
     "Comissões",
     "Relatórios",
-    "Contato",
+    "Suporte à Corretora",
   ];
 
   function atualizarCampo(
@@ -129,9 +130,56 @@ const calcularAniversario = (dataNascimento: string) => {
 
   setTotalApolices(count || 0);
 }
+async function carregarEmpresa() {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
 
-useEffect(() => { async function verificarUsuario() { const { data: { session }, } = await supabase.auth.getSession(); if (!session) { router.replace("/login"); return; } setVerificandoLogin(false); await carregarClientes(); } verificarUsuario(); }, [router]);
+  if (!session?.user) return;
 
+  const { data: usuarioEmpresa, error: erroUsuario } = await supabase
+    .from("usuarios_empresa")
+    .select("empresa_id")
+    .eq("id", session.user.id)
+    .single();
+
+  if (erroUsuario || !usuarioEmpresa) {
+    console.error("Erro ao encontrar empresa:", erroUsuario);
+    return;
+  }
+
+  const { data: empresa, error: erroEmpresa } = await supabase
+    .from("empresas")
+    .select("nome")
+    .eq("id", usuarioEmpresa.empresa_id)
+    .single();
+
+  if (erroEmpresa || !empresa) {
+    console.error("Erro ao carregar empresa:", erroEmpresa);
+    return;
+  }
+
+  setEmpresaNome(empresa.nome);
+}
+useEffect(() => {
+  async function verificarUsuario() {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session) {
+      router.replace("/login");
+      return;
+    }
+
+    await carregarEmpresa();
+    await carregarClientes();
+
+    setVerificandoLogin(false);
+  }
+
+  verificarUsuario();
+}, [router]);
   async function salvarCliente() {
     setMensagem("");
 
@@ -154,6 +202,49 @@ const dadosCliente = {
   vigencia_fim: form.vigencia_fim || null,
 };
 
+if (clienteEditando) {
+  const resultado = await supabase
+    .from("clientes")
+    .update(dadosCliente)
+    .eq("id", clienteEditando.id);
+
+  error = resultado.error;
+} else {
+  // Descobrir o usuário logado
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    setMensagem("Usuário não autenticado.");
+    return;
+  }
+
+  // Descobrir a empresa desse usuário
+  const { data: vinculoEmpresa, error: erroEmpresa } = await supabase
+    .from("usuarios_empresa")
+    .select("empresa_id")
+    .eq("id", user.id)
+    .single();
+
+  if (erroEmpresa || !vinculoEmpresa) {
+    console.error("Erro ao encontrar empresa:", erroEmpresa);
+    setMensagem("Não foi possível identificar a empresa do usuário.");
+    return;
+  }
+
+  // Criar cliente vinculado à empresa
+  const resultado = await supabase
+    .from("clientes")
+    .insert([
+      {
+        ...dadosCliente,
+        empresa_id: vinculoEmpresa.empresa_id,
+      },
+    ]);
+
+  error = resultado.error;
+}
 if (clienteEditando) {
   const resultado = await supabase
     .from("clientes")
@@ -211,18 +302,40 @@ if (clienteEditando) {
     return;
   }
 
-  const novaApolice = {
-    cliente_id: clienteEditando.id,
-    seguradora: form.seguradora,
-    premio_liquido: Number(form.premio_liquido || 0),
-    percentual_comissao: Number(form.percentual_comissao || 0),
-    vigencia_inicio: form.vigencia_inicio,
-    vigencia_fim: form.vigencia_fim,
-  };
+  const {
+  data: { user },
+} = await supabase.auth.getUser();
 
-  const { error: erroApolice } = await supabase
-    .from("apolices")
-    .insert([novaApolice]);
+if (!user) {
+  setMensagem("Usuário não autenticado.");
+  return;
+}
+
+const { data: vinculoEmpresa, error: erroEmpresa } = await supabase
+  .from("usuarios_empresa")
+  .select("empresa_id")
+  .eq("id", user.id)
+  .single();
+
+if (erroEmpresa || !vinculoEmpresa) {
+  console.error("Erro ao encontrar empresa:", erroEmpresa);
+  setMensagem("Não foi possível identificar a empresa do usuário.");
+  return;
+}
+
+const novaApolice = {
+  cliente_id: clienteEditando.id,
+  empresa_id: vinculoEmpresa.empresa_id,
+  seguradora: form.seguradora,
+  premio_liquido: Number(form.premio_liquido || 0),
+  percentual_comissao: Number(form.percentual_comissao || 0),
+  vigencia_inicio: form.vigencia_inicio,
+  vigencia_fim: form.vigencia_fim,
+};
+
+const { error: erroApolice } = await supabase
+  .from("apolices")
+  .insert([novaApolice]);
 
   if (erroApolice) {
     console.error("ERRO RENOVAÇÃO:", {
@@ -300,7 +413,7 @@ if (verificandoLogin) {
         <aside className="hidden w-64 bg-slate-950 text-white md:flex md:flex-col">
           <div className="border-b border-slate-800 p-6">
             <h1 className="text-2xl font-bold">
-              SAROKA SEGUROS & BLUECON
+              {empresaNome}
             </h1>
 
             <p className="mt-1 text-sm text-slate-400">
@@ -357,14 +470,16 @@ if (verificandoLogin) {
           <div className="p-6">
 
             {menu === "Dashboard" && (
-              <div>
-                <h3 className="text-xl font-semibold">
-                  Olá, Gustavo 👋
-                </h3>
+  <div>
+    <h2 className="text-xl font-semibold">
+      Olá, {empresaNome} 👋
+    </h2>
 
-                <p className="mt-1 text-slate-500">
-                  Aqui está o resumo da sua corretora.
-                </p>
+    <p className="mt-1 text-slate-500">
+      Aqui está o resumo da sua corretora.
+    </p>
+
+                
 
                 <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
                   <div className="rounded-2xl bg-white p-5 shadow-sm">
@@ -939,7 +1054,7 @@ if (verificandoLogin) {
   "Renovações",
   "Comissões",
   "Relatórios",
-  "Contato",
+  "Suporte à Corretora",
 ].includes(menu) && (
   <div className="rounded-2xl bg-white p-8">
     {menu === "Renovações" ? (
@@ -1329,7 +1444,7 @@ if (verificandoLogin) {
 
     </div>
   </div>
-) : menu === "Contato" ? (
+) : menu === "Suporte à Corretora" ? (
   <div className="max-w-4xl">
     <h3 className="text-2xl font-bold text-slate-900">
       Contato 📞
