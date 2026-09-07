@@ -238,13 +238,13 @@ export async function POST() {
           externalReference: empresaId,
 
           callback: {
-            successUrl:
-              "https://example.com/asaas/sucesso",
-            cancelUrl:
-              "https://example.com/asaas/cancelado",
-            expiredUrl:
-              "https://example.com/asaas/expirado",
-          },
+  successUrl:
+    "https://bluecon-app.vercel.app/assinatura/sucesso",
+  cancelUrl:
+    "https://bluecon-app.vercel.app/assinatura/cancelado",
+  expiredUrl:
+    "https://bluecon-app.vercel.app/assinatura/expirado",
+},
 
           items: [
             {
