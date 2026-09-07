@@ -1,48 +1,49 @@
 "use client";
-import { useState } from "react";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 export default function Assinatura() {
   const router = useRouter();
   const [carregando, setCarregando] = useState(false);
 
-  async function ativarAssinatura() {
+    async function ativarAssinatura() {
     try {
       setCarregando(true);
 
-      const resposta = await fetch("/api/asaas/assinatura", {
+      const resposta = await fetch("/api/asaas/checkout", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          customer: "cus_000009032260",
-          nextDueDate: "2026-09-14",
-        }),
       });
 
       const dados = await resposta.json();
 
       if (!resposta.ok) {
-        alert(dados.erro || "Não foi possível criar a assinatura.");
+        alert(
+          dados.erro ||
+            "Não foi possível iniciar o pagamento."
+        );
         return;
       }
 
-      if (dados.jaExiste) {
-  alert("Sua empresa já possui uma assinatura ativa no Asaas.");
-} else {
-  alert("Assinatura criada com sucesso!");
-}
+      if (!dados.checkout?.url) {
+        alert(
+          "O Asaas não retornou o endereço do pagamento."
+        );
+        return;
+      }
 
-console.log("Assinatura Asaas:", dados);
+      window.location.href = dados.checkout.url;
     } catch (erro) {
       console.error(erro);
-      alert("Erro ao conectar com o sistema de assinatura.");
+
+      alert(
+        "Erro ao conectar com o sistema de pagamento."
+      );
     } finally {
       setCarregando(false);
     }
   }
+
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-10 text-slate-900">
       <div className="mx-auto max-w-lg">
@@ -111,12 +112,12 @@ console.log("Assinatura Asaas:", dados);
           </div>
 
           <button
-  onClick={ativarAssinatura}
-  disabled={carregando}
-  className="mt-8 w-full rounded-xl bg-slate-950 px-5 py-4 text-lg font-bold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
->
-  {carregando ? "Processando..." : "Assinar agora"}
-</button>
+            onClick={ativarAssinatura}
+            disabled={carregando}
+            className="mt-8 w-full rounded-xl bg-slate-950 px-5 py-4 text-lg font-bold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {carregando ? "Processando..." : "Assinar agora"}
+          </button>
 
           <button
             onClick={() => router.push("/")}
