@@ -5,6 +5,19 @@ export async function POST(request: Request) {
   const supabase = await createClient();
 
   try {
+    // Valida o token enviado pelo Asaas
+    const tokenRecebido = request.headers.get("asaas-access-token");
+    const tokenEsperado = process.env.ASAAS_WEBHOOK_TOKEN;
+
+    if (!tokenEsperado || tokenRecebido !== tokenEsperado) {
+      return NextResponse.json(
+        {
+          erro: "Não autorizado.",
+        },
+        { status: 401 }
+      );
+    }
+
     const payload = await request.json();
 
     const eventoId = payload?.id;
