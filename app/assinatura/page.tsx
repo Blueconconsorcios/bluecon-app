@@ -25,12 +25,20 @@ export default function Assinatura() {
         return;
       }
 
-      if (!dados.checkout?.url) {
-        alert(
-          "O Asaas não retornou o endereço do pagamento."
-        );
-        return;
-      }
+      if (dados.jaExiste && !dados.checkout?.url) {
+  alert(
+    "Sua assinatura já está ativa. Você já possui uma assinatura do Bluecon CRM."
+  );
+  router.push("/");
+  return;
+}
+
+if (!dados.checkout?.url) {
+  alert(
+    "O Asaas não retornou o endereço do pagamento."
+  );
+  return;
+}
 
       window.location.href = dados.checkout.url;
     } catch (erro) {
