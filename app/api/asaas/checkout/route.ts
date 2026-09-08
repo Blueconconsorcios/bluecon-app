@@ -42,7 +42,10 @@ export async function POST() {
 
     const empresaId = empresaUsuario.empresa_id;
 
-    // Busca os dados completos da empresa
+    // =========================================================
+    // 1. BUSCA OS DADOS DA EMPRESA
+    // =========================================================
+
     const { data: empresa, error: erroEmpresa } = await supabase
       .from("empresas")
       .select(
@@ -60,7 +63,10 @@ export async function POST() {
       );
     }
 
-    // Verifica se a empresa já possui uma assinatura interna
+    // =========================================================
+    // 2. BUSCA A ASSINATURA INTERNA DA EMPRESA
+    // =========================================================
+
     const { data: assinaturaData, error: erroAssinatura } =
       await supabase.rpc("minha_assinatura_asaas");
 
@@ -76,7 +82,52 @@ export async function POST() {
       );
     }
 
-    // Verifica os dados obrigatórios antes de falar com o Asaas
+    // =========================================================
+    // 3. SE JÁ EXISTE ASSINATURA NO ASAAS, NÃO CRIA OUTRA
+    // =========================================================
+
+    if (
+      assinatura.gateway_subscription_id &&
+      (
+        assinatura.gateway_status === "ACTIVE" ||
+        assinatura.gateway_status === "RECEIVED"
+      )
+    ) {
+      return NextResponse.json({
+        sucesso: true,
+        jaExiste: true,
+        mensagem: "A empresa já possui uma assinatura ativa.",
+        assinatura: {
+          id: assinatura.gateway_subscription_id,
+          status: assinatura.gateway_status,
+        },
+      });
+    }
+
+    // =========================================================
+    // 4. REUTILIZA CHECKOUT AINDA DISPONÍVEL
+    // =========================================================
+
+    if (
+      assinatura.gateway_checkout_id &&
+      assinatura.gateway_checkout_status === "ACTIVE" &&
+      assinatura.gateway_checkout_url
+    ) {
+      return NextResponse.json({
+        sucesso: true,
+        jaExiste: true,
+        checkout: {
+          id: assinatura.gateway_checkout_id,
+          url: assinatura.gateway_checkout_url,
+          status: assinatura.gateway_checkout_status,
+        },
+      });
+    }
+
+    // =========================================================
+    // 5. VERIFICA DADOS OBRIGATÓRIOS
+    // =========================================================
+
     const camposObrigatorios = [
       ["CPF/CNPJ", empresa.cpf_cnpj],
       ["telefone", empresa.telefone],
@@ -100,11 +151,11 @@ export async function POST() {
       );
     }
 
-    let gatewayCustomerId = assinatura.gateway_customer_id;
+    // =========================================================
+    // 6. CRIA CLIENTE NO ASAAS, SE NECESSÁRIO
+    // =========================================================
 
-    // =========================================================
-    // 1. CRIA CLIENTE NO ASAAS AUTOMATICAMENTE, SE NECESSÁRIO
-    // =========================================================
+    let gatewayCustomerId = assinatura.gateway_customer_id;
 
     if (!gatewayCustomerId) {
       const cpfCnpj = String(empresa.cpf_cnpj).replace(/\D/g, "");
@@ -147,8 +198,7 @@ export async function POST() {
 
         return NextResponse.json(
           {
-            erro:
-              "Não foi possível criar o cliente no Asaas.",
+            erro: "Não foi possível criar o cliente no Asaas.",
             detalhes: dadosCliente,
           },
           { status: respostaCliente.status }
@@ -158,8 +208,7 @@ export async function POST() {
       if (!dadosCliente.id) {
         return NextResponse.json(
           {
-            erro:
-              "O Asaas não retornou o ID do cliente.",
+            erro: "O Asaas não retornou o ID do cliente.",
           },
           { status: 500 }
         );
@@ -167,7 +216,10 @@ export async function POST() {
 
       gatewayCustomerId = dadosCliente.id;
 
-      // Salva o cliente Asaas na empresa
+      // =========================================================
+      // 7. VINCULA CLIENTE ASAAS À EMPRESA
+      // =========================================================
+
       const { error: erroVinculo } = await supabase.rpc(
         "vincular_cliente_asaas",
         {
@@ -193,27 +245,7 @@ export async function POST() {
     }
 
     // =========================================================
-    // 2. REUTILIZA CHECKOUT JÁ CRIADO
-    // =========================================================
-
-    if (
-      assinatura.gateway_checkout_id &&
-      assinatura.gateway_checkout_status === "ACTIVE" &&
-      assinatura.gateway_checkout_url
-    ) {
-      return NextResponse.json({
-        sucesso: true,
-        jaExiste: true,
-        checkout: {
-          id: assinatura.gateway_checkout_id,
-          url: assinatura.gateway_checkout_url,
-          status: assinatura.gateway_checkout_status,
-        },
-      });
-    }
-
-    // =========================================================
-    // 3. CRIA CHECKOUT RECORRENTE
+    // 8. CRIA CHECKOUT RECORRENTE
     // =========================================================
 
     const resposta = await fetch(
@@ -238,13 +270,13 @@ export async function POST() {
           externalReference: empresaId,
 
           callback: {
-  successUrl:
-    "https://bluecon-app.vercel.app/assinatura/sucesso",
-  cancelUrl:
-    "https://bluecon-app.vercel.app/assinatura/cancelado",
-  expiredUrl:
-    "https://bluecon-app.vercel.app/assinatura/expirado",
-},
+            successUrl:
+              "https://bluecon-app.vercel.app/assinatura/sucesso",
+            cancelUrl:
+              "https://bluecon-app.vercel.app/assinatura/cancelado",
+            expiredUrl:
+              "https://bluecon-app.vercel.app/assinatura/expirado",
+          },
 
           items: [
             {
@@ -301,35 +333,39 @@ export async function POST() {
       `https://sandbox.asaas.com/checkoutSession/show?id=${dados.id}`;
 
     // =========================================================
-// 4. SALVA O CHECKOUT NA ASSINATURA
-// =========================================================
+    // 9. SALVA O CHECKOUT NA ASSINATURA
+    // =========================================================
 
-const { error: erroSalvar } = await supabase.rpc(
-  "vincular_checkout_asaas",
-  {
-    p_gateway_checkout_id: dados.id,
-    p_gateway_checkout_url: checkoutUrl,
-    p_gateway_checkout_status: "ACTIVE",
-  }
-);
+    const { error: erroSalvar } = await supabase.rpc(
+      "vincular_checkout_asaas",
+      {
+        p_gateway_checkout_id: dados.id,
+        p_gateway_checkout_url: checkoutUrl,
+        p_gateway_checkout_status: "ACTIVE",
+      }
+    );
 
-if (erroSalvar) {
-  console.error(
-    "Erro ao vincular Checkout:",
-    erroSalvar
-  );
+    if (erroSalvar) {
+      console.error(
+        "Erro ao vincular Checkout:",
+        erroSalvar
+      );
 
-  return NextResponse.json(
-    {
-      erro:
-        "Checkout criado no Asaas, mas não foi possível vincular o Checkout à empresa.",
-      detalhes: erroSalvar.message,
-      checkout_id: dados.id,
-      checkout_url: checkoutUrl,
-    },
-    { status: 500 }
-  );
-}
+      return NextResponse.json(
+        {
+          erro:
+            "Checkout criado no Asaas, mas não foi possível vinculá-lo à empresa.",
+          detalhes: erroSalvar.message,
+          checkout_id: dados.id,
+          checkout_url: checkoutUrl,
+        },
+        { status: 500 }
+      );
+    }
+
+    // =========================================================
+    // 10. RETORNA O CHECKOUT
+    // =========================================================
 
     return NextResponse.json({
       sucesso: true,
