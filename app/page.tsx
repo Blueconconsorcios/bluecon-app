@@ -510,20 +510,7 @@ if (clienteEditando) {
 
   error = resultado.error;
 }
-if (clienteEditando) {
-  const resultado = await supabase
-    .from("clientes")
-    .update(dadosCliente)
-    .eq("id", clienteEditando.id);
 
-  error = resultado.error;
-} else {
-  const resultado = await supabase
-    .from("clientes")
-    .insert([dadosCliente]);
-
-  error = resultado.error;
-}
 
     if (error) {
       console.error(error);
