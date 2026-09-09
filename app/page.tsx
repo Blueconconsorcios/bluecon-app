@@ -11,13 +11,16 @@ import autoTable from "jspdf-autotable";
 export default function Home() {
   const supabase = createClient();
   const router = useRouter();
-const [verificandoLogin, setVerificandoLogin] = useState(true);
+  const [verificandoLogin, setVerificandoLogin] = useState(true);
   const [menu, setMenu] = useState("Dashboard");
   const [mensagem, setMensagem] = useState("");
   const [clientes, setClientes] = useState<any[]>([]);
   const [totalApolices, setTotalApolices] = useState(0);
   const [busca, setBusca] = useState("");
   const [clienteEditando, setClienteEditando] = useState<any | null>(null);
+  const [clienteVisualizando, setClienteVisualizando] = useState<any | null>(null);
+  const [documentosCliente, setDocumentosCliente] = useState<any[]>([]);
+  const [enviandoDocumento, setEnviandoDocumento] = useState(false);
   const [empresaNome, setEmpresaNome] = useState("Minha Empresa");
   const [assinaturaAtiva, setAssinaturaAtiva] = useState<boolean | null>(null);
   const [dadosAssinatura, setDadosAssinatura] = useState<any | null>(null);
@@ -133,6 +136,168 @@ const calcularAniversario = (dataNascimento: string) => {
 
   setTotalApolices(count || 0);
 }
+async function carregarDocumentos(clienteId: string) {
+  const { data, error } = await supabase
+    .from("documentos_clientes")
+    .select("*")
+    .eq("cliente_id", clienteId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Erro ao carregar documentos:", error);
+    setDocumentosCliente([]);
+    return;
+  }
+
+  setDocumentosCliente(data || []);
+}
+
+async function enviarDocumento(clienteId: string, arquivo: File) {
+  setEnviandoDocumento(true);
+  setMensagem("");
+
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      setMensagem("Usuário não autenticado.");
+      return;
+    }
+
+    const { data: vinculoEmpresa, error: erroEmpresa } = await supabase
+      .from("usuarios_empresa")
+      .select("empresa_id")
+      .eq("id", user.id)
+      .single();
+
+    if (erroEmpresa || !vinculoEmpresa) {
+      setMensagem("Não foi possível identificar a empresa.");
+      return;
+    }
+
+    const empresaId = vinculoEmpresa.empresa_id;
+
+    const nomeSeguro = arquivo.name.replace(
+      /[^a-zA-Z0-9._-]/g,
+      "_"
+    );
+
+    const caminhoArquivo =
+      `${empresaId}/${clienteId}/${Date.now()}-${nomeSeguro}`;
+
+    const { error: erroUpload } = await supabase.storage
+      .from("documentos-clientes")
+      .upload(caminhoArquivo, arquivo);
+
+    if (erroUpload) {
+      console.error("Erro ao enviar arquivo:", erroUpload);
+      setMensagem(
+        "Erro ao enviar o documento: " + erroUpload.message
+      );
+      return;
+    }
+
+    const { error: erroDocumento } = await supabase
+      .from("documentos_clientes")
+      .insert([
+        {
+          empresa_id: empresaId,
+          cliente_id: clienteId,
+          nome_arquivo: arquivo.name,
+          caminho_arquivo: caminhoArquivo,
+          tipo_arquivo: arquivo.type,
+          tamanho_arquivo: arquivo.size,
+        },
+      ]);
+
+    if (erroDocumento) {
+      console.error(
+        "Erro ao registrar documento:",
+        erroDocumento
+      );
+
+      await supabase.storage
+        .from("documentos-clientes")
+        .remove([caminhoArquivo]);
+
+      setMensagem(
+        "O arquivo foi enviado, mas não foi possível registrá-lo."
+      );
+      return;
+    }
+
+    await carregarDocumentos(clienteId);
+
+    setMensagem("✅ Documento enviado com sucesso!");
+  } finally {
+    setEnviandoDocumento(false);
+  }
+}
+async function baixarDocumento(documento: any) {
+  const { data, error } = await supabase.storage
+    .from("documentos-clientes")
+    .download(documento.caminho_arquivo);
+
+  if (error) {
+    console.error("Erro ao baixar documento:", error);
+    setMensagem("Erro ao baixar o documento.");
+    return;
+  }
+
+  const url = URL.createObjectURL(data);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = documento.nome_arquivo;
+
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+
+  URL.revokeObjectURL(url);
+}
+
+async function excluirDocumento(documento: any) {
+  const confirmar = window.confirm(
+    `Deseja realmente excluir o documento "${documento.nome_arquivo}"?`
+  );
+
+  if (!confirmar) return;
+
+  setMensagem("");
+
+  const { error: erroStorage } = await supabase.storage
+    .from("documentos-clientes")
+    .remove([documento.caminho_arquivo]);
+
+  if (erroStorage) {
+    console.error("Erro ao excluir arquivo:", erroStorage);
+    setMensagem("Erro ao excluir o arquivo.");
+    return;
+  }
+
+  const { error: erroBanco } = await supabase
+    .from("documentos_clientes")
+    .delete()
+    .eq("id", documento.id);
+
+  if (erroBanco) {
+    console.error("Erro ao excluir registro:", erroBanco);
+    setMensagem(
+      "O arquivo foi removido, mas houve erro ao excluir o registro."
+    );
+    return;
+  }
+
+  if (clienteVisualizando) {
+    await carregarDocumentos(clienteVisualizando.id);
+  }
+
+  setMensagem("✅ Documento excluído com sucesso!");
+}
+
 async function carregarEmpresa() {
   const {
     data: { session },
@@ -803,9 +968,15 @@ if (verificandoLogin) {
       >
         <div className="flex flex-col justify-between gap-3 md:flex-row">
           <div>
-            <h4 className="font-semibold">
-              {cliente.nome}
-            </h4>
+            <button
+  onClick={() => {
+    setClienteVisualizando(cliente);
+    carregarDocumentos(cliente.id);
+  }}
+  className="text-left font-semibold text-blue-600 hover:text-blue-800 hover:underline"
+>
+  {cliente.nome}
+</button>
 
             <div className="flex items-center gap-2">
   <p className="text-sm text-slate-500">
@@ -906,7 +1077,245 @@ if (verificandoLogin) {
 
               </div>
             )}
+{clienteVisualizando && (
+  <div className="mb-6 rounded-2xl bg-white p-6 shadow-sm border">
+    <div className="flex items-center justify-between">
+      <div>
+        <h3 className="text-2xl font-bold text-slate-900">
+          👤 Ficha do Cliente
+        </h3>
 
+        <p className="mt-1 text-slate-500">
+          Consulta dos dados cadastrados.
+        </p>
+      </div>
+
+      <button
+        onClick={() => setClienteVisualizando(null)}
+        className="rounded-lg bg-slate-200 px-4 py-2 font-medium text-slate-700 hover:bg-slate-300"
+      >
+        ✕ Fechar
+      </button>
+    </div>
+
+    <div className="mt-6 grid gap-4 md:grid-cols-2">
+
+      <div className="rounded-xl bg-slate-50 p-4">
+        <p className="text-sm text-slate-500">
+          Nome
+        </p>
+
+        <p className="mt-1 font-semibold">
+          {clienteVisualizando.nome || "Não informado"}
+        </p>
+      </div>
+
+      <div className="rounded-xl bg-slate-50 p-4">
+        <p className="text-sm text-slate-500">
+          CPF
+        </p>
+
+        <p className="mt-1 font-semibold">
+          {clienteVisualizando.cpf || "Não informado"}
+        </p>
+      </div>
+
+      <div className="rounded-xl bg-slate-50 p-4">
+        <p className="text-sm text-slate-500">
+          Telefone
+        </p>
+
+        <p className="mt-1 font-semibold">
+          {clienteVisualizando.telefone || "Não informado"}
+        </p>
+      </div>
+
+      <div className="rounded-xl bg-slate-50 p-4">
+        <p className="text-sm text-slate-500">
+          Data de nascimento
+        </p>
+
+        <p className="mt-1 font-semibold">
+          {clienteVisualizando.data_nascimento
+            ? new Date(
+                clienteVisualizando.data_nascimento + "T00:00:00"
+              ).toLocaleDateString("pt-BR")
+            : "Não informado"}
+        </p>
+      </div>
+
+      <div className="rounded-xl bg-slate-50 p-4">
+        <p className="text-sm text-slate-500">
+          Seguradora
+        </p>
+
+        <p className="mt-1 font-semibold">
+          {clienteVisualizando.seguradora || "Não informada"}
+        </p>
+      </div>
+
+      <div className="rounded-xl bg-slate-50 p-4">
+        <p className="text-sm text-slate-500">
+          Prêmio líquido
+        </p>
+
+        <p className="mt-1 font-semibold">
+          R$ {Number(clienteVisualizando.premio_liquido || 0).toFixed(2)}
+        </p>
+      </div>
+
+      <div className="rounded-xl bg-slate-50 p-4">
+        <p className="text-sm text-slate-500">
+          Comissão
+        </p>
+
+        <p className="mt-1 font-semibold">
+          {Number(clienteVisualizando.percentual_comissao || 0)}%
+        </p>
+      </div>
+
+      <div className="rounded-xl bg-slate-50 p-4">
+        <p className="text-sm text-slate-500">
+          Vigência
+        </p>
+
+        <p className="mt-1 font-semibold">
+          {clienteVisualizando.vigencia_inicio
+            ? new Date(
+                clienteVisualizando.vigencia_inicio + "T00:00:00"
+              ).toLocaleDateString("pt-BR")
+            : "--"}
+          {" até "}
+          {clienteVisualizando.vigencia_fim
+            ? new Date(
+                clienteVisualizando.vigencia_fim + "T00:00:00"
+              ).toLocaleDateString("pt-BR")
+            : "--"}
+        </p>
+      </div>
+
+        </div>
+
+    {/* DOCUMENTOS DO CLIENTE */}
+    <div className="mt-8 border-t pt-6">
+      <h4 className="text-lg font-semibold">
+        📎 Documentos
+      </h4>
+
+      <p className="mt-1 text-sm text-slate-500">
+        Adicione documentos relacionados a este cliente.
+      </p>
+
+      <label className="mt-4 inline-flex cursor-pointer items-center rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700">
+        📎 Adicionar documento
+
+        <input
+          type="file"
+          className="hidden"
+          disabled={enviandoDocumento}
+          onChange={(e) => {
+            const arquivo = e.target.files?.[0];
+
+            if (!arquivo || !clienteVisualizando) return;
+
+            enviarDocumento(clienteVisualizando.id, arquivo);
+
+            e.target.value = "";
+          }}
+        />
+      </label>
+
+      {enviandoDocumento && (
+        <p className="mt-3 text-sm text-blue-600">
+          ⏳ Enviando documento...
+        </p>
+      )}
+
+      {documentosCliente.length === 0 && !enviandoDocumento && (
+        <p className="mt-4 text-sm text-slate-500">
+          Nenhum documento cadastrado para este cliente.
+        </p>
+      )}
+
+      {documentosCliente.length > 0 && (
+        <div className="mt-4 space-y-2">
+          {documentosCliente.map((documento) => (
+            <div
+  key={documento.id}
+  className="flex items-center justify-between rounded-lg border p-3"
+>
+  <div>
+    <p className="font-medium">
+      {documento.nome_arquivo}
+    </p>
+
+    <p className="text-xs text-slate-500">
+      {documento.tipo_arquivo || "Arquivo"}
+    </p>
+  </div>
+
+  <div className="flex gap-2">
+    <button
+      onClick={() => baixarDocumento(documento)}
+      className="rounded-lg bg-slate-700 px-4 py-2 font-medium text-white hover:bg-slate-800"
+    >
+      ⬇️ Baixar
+    </button>
+
+    <button
+      onClick={() => excluirDocumento(documento)}
+      className="rounded-lg bg-red-600 px-4 py-2 font-medium text-white hover:bg-red-700"
+    >
+      🗑️ Excluir
+    </button>
+  </div>
+</div>
+          ))}
+        </div>
+      )}
+    </div>
+
+    <div className="mt-6 flex gap-3">
+      <button
+        onClick={() => {
+          setClienteEditando(clienteVisualizando);
+          setForm({
+            nome: clienteVisualizando.nome || "",
+            cpf: clienteVisualizando.cpf || "",
+            telefone: clienteVisualizando.telefone || "",
+            data_nascimento: clienteVisualizando.data_nascimento || "",
+            seguradora: clienteVisualizando.seguradora || "",
+            premio_liquido:
+              clienteVisualizando.premio_liquido?.toString() || "",
+            percentual_comissao:
+              clienteVisualizando.percentual_comissao?.toString() || "",
+            vigencia_inicio:
+              clienteVisualizando.vigencia_inicio || "",
+            vigencia_fim:
+              clienteVisualizando.vigencia_fim || "",
+          });
+
+          setClienteVisualizando(null);
+          setMenu("Novo Cliente");
+        }}
+        className="rounded-lg bg-blue-600 px-5 py-3 font-medium text-white hover:bg-blue-700"
+      >
+        ✏️ Editar cliente
+      </button>
+
+      <button
+        onClick={() => {
+          setClienteEditando(clienteVisualizando);
+          setClienteVisualizando(null);
+          setMenu("Renovar");
+        }}
+        className="rounded-lg bg-green-600 px-5 py-3 font-medium text-white hover:bg-green-700"
+      >
+        🔄 Renovar apólice
+      </button>
+    </div>
+  </div>
+)}
             {menu === "Novo Cliente" && (
               <div className="max-w-4xl rounded-2xl bg-white p-6 shadow-sm">
 
@@ -1201,9 +1610,15 @@ if (verificandoLogin) {
           key={cliente.id}
           className="rounded-xl border bg-white p-4"
         >
-          <h4 className="font-semibold">
-            {cliente.nome}
-          </h4>
+          <button
+  onClick={() => {
+    setClienteVisualizando(cliente);
+    carregarDocumentos(cliente.id);
+  }}
+  className="text-left font-semibold text-blue-600 hover:text-blue-800 hover:underline"
+>
+  {cliente.nome}
+</button>
 
           <p className="text-sm text-slate-500">
             {cliente.seguradora || "Seguradora não informada"}
