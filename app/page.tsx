@@ -204,16 +204,8 @@ const renderLabelSeguradora = (props: any) => {
   }
 
   setClientes(data || []);
-  const { count, error: erroApolices } = await supabase
-    .from("apolices")
-    .select("*", { count: "exact", head: true });
 
-  if (erroApolices) {
-    console.error("Erro ao contar apólices:", erroApolices);
-    return;
-  }
-
-  setTotalApolices(count || 0);
+setTotalApolices((data || []).length);
 }
 async function carregarDocumentos(clienteId: string) {
   const { data, error } = await supabase
