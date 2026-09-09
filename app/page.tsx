@@ -73,21 +73,100 @@ const calcularAniversario = (dataNascimento: string) => {
   (Number(form.premio_liquido || 0) *
     Number(form.percentual_comissao || 0)) /
   100;
-  const dadosSeguradoras = Object.entries(
+  const dadosSeguradoras = Object.values(
   clientes.reduce((acc: any, cliente) => {
-    const seguradora =
-      cliente.seguradora || "Não informada";
+    const original =
+      cliente.seguradora?.trim() || "Não informada";
 
-    acc[seguradora] = (acc[seguradora] || 0) + 1;
+    const chave = original
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/\s+/g, " ");
+
+    if (!acc[chave]) {
+      acc[chave] = {
+        name: original,
+        value: 0,
+      };
+    }
+
+    acc[chave].value += 1;
 
     return acc;
   }, {})
-).map(([name, value]) => ({
-  name,
-  value,
-}));
+);
 
+const renderLabelSeguradora = (props: any) => {
+  const {
+    cx,
+    cy,
+    midAngle,
+    outerRadius,
+    percent,
+    name,
+    value,
+  } = props;
 
+  const RADIAN = Math.PI / 180;
+
+  const radius = outerRadius + 45;
+
+  const x = cx + radius * Math.cos(-midAngle * RADIAN);
+  const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+  const total = dadosSeguradoras.reduce(
+    (soma: number, item: any) => soma + Number(item.value),
+    0
+  );
+
+  const percentual = total
+    ? ((Number(value) / total) * 100).toFixed(1)
+    : "0.0";
+
+  const textoX = x + (x > cx ? 10 : -10);
+
+  return (
+    <g>
+      <line
+        x1={cx + outerRadius * Math.cos(-midAngle * RADIAN)}
+        y1={cy + outerRadius * Math.sin(-midAngle * RADIAN)}
+        x2={x}
+        y2={y}
+        stroke="#64748b"
+        strokeWidth={1.5}
+      />
+
+      <circle
+        cx={x}
+        cy={y}
+        r={4}
+        fill="#64748b"
+      />
+
+      <text
+        x={textoX}
+        y={y - 6}
+        textAnchor={x > cx ? "start" : "end"}
+        fill="#0f172a"
+        fontSize={14}
+        fontWeight={700}
+      >
+        {name}
+      </text>
+
+      <text
+        x={textoX}
+        y={y + 14}
+        textAnchor={x > cx ? "start" : "end"}
+        fill="#64748b"
+        fontSize={13}
+      >
+        {value} ({percentual}%)
+      </text>
+    </g>
+  );
+};
   const menuItems = [
     "Dashboard",
     "Clientes",
@@ -748,42 +827,51 @@ if (verificandoLogin) {
 
                 
 
-                <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-                  <div className="rounded-2xl bg-white p-5 shadow-sm">
-  <p className="text-sm text-slate-500">
-    Apólices emitidas
-  </p>
-  <p className="mt-2 text-3xl font-bold text-slate-900">
-    {totalApolices}
-  </p>
-</div>
-              </div>
-              <div className="rounded-2xl bg-white p-5 shadow-sm">
-  <p className="text-sm text-slate-500">
-    Renovações nos próximos 30 dias
-  </p>
-
-  <p className="mt-2 text-3xl font-bold text-slate-900">
-    {(() => {
-      const hoje = new Date();
-      const limite = new Date();
-      limite.setDate(hoje.getDate() + 30);
-
-      return clientes.filter((cliente) => {
-        if (!cliente.vigencia_fim) return false;
-
-        const partes = cliente.vigencia_fim.split("-");
-        const vencimento = new Date(
-          Number(partes[0]),
-          Number(partes[1]) - 1,
-          Number(partes[2])
-        );
-
-        return vencimento >= hoje && vencimento <= limite;
-      }).length;
-    })()}
-  </p>
+                <div className="mt-6 grid gap-5 sm:grid-cols-2">
+  {/* APÓLICES EMITIDAS */}
   <div className="rounded-2xl bg-white p-5 shadow-sm">
+    <p className="text-sm text-slate-500">
+      Apólices emitidas
+    </p>
+
+    <p className="mt-2 text-3xl font-bold text-slate-900">
+      {totalApolices}
+    </p>
+  </div>
+
+  {/* RENOVAÇÕES */}
+  <div className="rounded-2xl bg-white p-5 shadow-sm">
+    <p className="text-sm text-slate-500">
+      Renovações nos próximos 30 dias
+    </p>
+
+    <p className="mt-2 text-3xl font-bold text-slate-900">
+      {(() => {
+        const hoje = new Date();
+        const limite = new Date();
+
+        limite.setDate(hoje.getDate() + 30);
+
+        return clientes.filter((cliente) => {
+          if (!cliente.vigencia_fim) return false;
+
+          const partes = cliente.vigencia_fim.split("-");
+
+          const vencimento = new Date(
+            Number(partes[0]),
+            Number(partes[1]) - 1,
+            Number(partes[2])
+          );
+
+          return vencimento >= hoje && vencimento <= limite;
+        }).length;
+      })()}
+    </p>
+  </div>
+</div>
+
+{/* GRÁFICO DE SEGURADORAS */}
+<div className="mt-6 rounded-2xl bg-white p-5 shadow-sm">
   <h4 className="mb-4 text-lg font-semibold">
     Seguradoras vendidas
   </h4>
@@ -794,31 +882,31 @@ if (verificandoLogin) {
     </p>
   ) : (
     <div className="flex justify-center">
-      <PieChart width={320} height={280}>
-        <Pie
-          data={dadosSeguradoras}
-          dataKey="value"
-          nameKey="name"
-          cx="50%"
-          cy="50%"
-          outerRadius={90}
-          label
-        >
-          {dadosSeguradoras.map((entry, index) => (
-            <Cell
-              key={`cell-${index}`}
-              fill={`hsl(${index * 60}, 70%, 55%)`}
-            />
-          ))}
-        </Pie>
+      <PieChart width={700} height={420}>
+  <Pie
+    data={dadosSeguradoras}
+    dataKey="value"
+    nameKey="name"
+    cx="50%"
+    cy="50%"
+    outerRadius={125}
+    label={renderLabelSeguradora}
+    labelLine={false}
+  >
+    {dadosSeguradoras.map((entry, index) => (
+      <Cell
+        key={`cell-${index}`}
+        fill={`hsl(${index * 60}, 70%, 55%)`}
+        stroke="#ffffff"
+        strokeWidth={2}
+      />
+    ))}
+  </Pie>
 
-        <Tooltip />
-        <Legend />
-      </PieChart>
+  <Tooltip />
+</PieChart>
     </div>
   )}
-</div>
-
 </div>
 <div className="mt-6 rounded-2xl bg-white p-5 shadow-sm">
   <h4 className="text-lg font-semibold">
