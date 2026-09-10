@@ -109,10 +109,11 @@ export async function POST() {
     // =========================================================
 
     if (
-      assinatura.gateway_checkout_id &&
-      assinatura.gateway_checkout_status === "ACTIVE" &&
-      assinatura.gateway_checkout_url
-    ) {
+  assinatura.gateway_checkout_id &&
+  assinatura.gateway_checkout_status === "ACTIVE" &&
+  assinatura.gateway_checkout_url &&
+  !assinatura.gateway_checkout_url.includes("sandbox.asaas.com")
+) {
       return NextResponse.json({
         sucesso: true,
         jaExiste: true,
