@@ -12,7 +12,7 @@ export async function GET() {
 
   try {
     const resposta = await fetch(
-      "https://api-sandbox.asaas.com/v3/customers?limit=10",
+      "https://api.asaas.com/v3/customers?limit=10",
       {
         method: "GET",
         headers: {

@@ -163,7 +163,7 @@ if (erroAssinatura || !assinaturaAtual) {
 
     if (!gatewayCustomerId) {
       const respostaCliente = await fetch(
-        "https://api-sandbox.asaas.com/v3/customers",
+        "https://api.asaas.com/v3/customers",
         {
           method: "POST",
           headers: {
@@ -270,7 +270,7 @@ if (erroAssinatura || !assinaturaAtual) {
 
     // 10. Cria a assinatura mensal no Asaas
     const resposta = await fetch(
-      "https://api-sandbox.asaas.com/v3/subscriptions",
+      "https://api.asaas.com/v3/subscriptions",
       {
         method: "POST",
         headers: {

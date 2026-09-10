@@ -163,7 +163,7 @@ export async function POST() {
       const cep = String(empresa.cep).replace(/\D/g, "");
 
       const respostaCliente = await fetch(
-        "https://api-sandbox.asaas.com/v3/customers",
+        "https://api.asaas.com/v3/customers",
         {
           method: "POST",
           headers: {
@@ -249,7 +249,7 @@ export async function POST() {
     // =========================================================
 
     const resposta = await fetch(
-      "https://api-sandbox.asaas.com/v3/checkouts",
+      "https://api.asaas.com/v3/checkouts",
       {
         method: "POST",
         headers: {
