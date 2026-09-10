@@ -330,7 +330,7 @@ export async function POST() {
     }
 
     const checkoutUrl =
-      `https://sandbox.asaas.com/checkoutSession/show?id=${dados.id}`;
+      `https://asaas.com/checkoutSession/show?id=${dados.id}`;
 
     // =========================================================
     // 9. SALVA O CHECKOUT NA ASSINATURA
