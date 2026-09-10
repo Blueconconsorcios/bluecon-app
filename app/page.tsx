@@ -772,34 +772,52 @@ if (verificandoLogin) {
         </p>
 
         <p className="mt-1 text-slate-600">
-          R$ {Number(dadosAssinatura.valor_mensal).toFixed(2).replace(".", ",")}
+          R$ {Number(dadosAssinatura.valor_mensal)
+            .toFixed(2)
+            .replace(".", ",")}
           /mês
         </p>
       </div>
 
-      <div className="rounded-xl bg-slate-100 px-4 py-3 text-center">
-        <p className="text-sm font-semibold text-slate-700">
-          🎁 Teste grátis
-        </p>
+      {String(dadosAssinatura.status).trim().toLowerCase() === "ativo" ? (
+        <div className="rounded-xl bg-green-50 px-5 py-4 text-center">
+          <p className="text-sm font-semibold text-green-700">
+            ✅ Assinatura ativa
+          </p>
 
-        <p className="mt-1 text-2xl font-bold text-slate-900">
-          {dadosAssinatura.dias_restantes}
-        </p>
+          <p className="mt-1 text-sm text-green-600">
+            Seu plano está ativo
+          </p>
+        </div>
+      ) : (
+        <div className="rounded-xl bg-slate-100 px-4 py-3 text-center">
+          <p className="text-sm font-semibold text-slate-700">
+            🎁 Teste grátis
+          </p>
 
-        <p className="text-xs text-slate-500">
-          dias restantes
-        </p>
-        <p className="mt-1 text-xs text-slate-500">
-  Termina em{" "}
-  {new Date(dadosAssinatura.trial_ate).toLocaleDateString("pt-BR")}
-</p>
-<button
-  onClick={() => router.push("/assinatura")}
-  className="mt-3 w-full rounded-lg bg-slate-950 px-4 py-2 font-semibold text-white hover:bg-slate-800"
->
-  Assinar agora
-</button>
-      </div>
+          <p className="mt-1 text-2xl font-bold text-slate-900">
+            {dadosAssinatura.dias_restantes}
+          </p>
+
+          <p className="text-xs text-slate-500">
+            dias restantes
+          </p>
+
+          <p className="mt-1 text-xs text-slate-500">
+            Termina em{" "}
+            {new Date(
+              dadosAssinatura.trial_ate
+            ).toLocaleDateString("pt-BR")}
+          </p>
+
+          <button
+            onClick={() => router.push("/assinatura")}
+            className="mt-3 w-full rounded-lg bg-slate-950 px-4 py-2 font-semibold text-white hover:bg-slate-800"
+          >
+            Assinar agora
+          </button>
+        </div>
+      )}
     </div>
   </div>
 )}
