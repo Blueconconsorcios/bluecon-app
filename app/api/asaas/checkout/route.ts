@@ -292,11 +292,9 @@ export async function POST() {
           subscription: {
             cycle: "MONTHLY",
 
-            nextDueDate: new Date(
-              Date.now() + 7 * 24 * 60 * 60 * 1000
-            )
-              .toISOString()
-              .slice(0, 10),
+            nextDueDate: new Date()
+  .toISOString()
+  .slice(0, 10),
           },
         }),
       }
