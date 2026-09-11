@@ -2053,33 +2053,12 @@ if (verificandoLogin) {
     </h3>
 
     <p className="mt-1 text-slate-500">
-      Entre em contato com a SAROKA SEGUROS & BLUECON.
+      Entre em contato com o suporte.
     </p>
 
     <div className="mt-6 grid gap-5 md:grid-cols-2">
 
-      <div className="rounded-2xl bg-slate-50 p-6">
-        <p className="text-sm font-medium text-slate-500">
-          📍 Endereço
-        </p>
-
-        <p className="mt-2 font-semibold text-slate-900">
-          Av. Inconfidência Mineira, 138
-        </p>
-
-        <p className="text-slate-600">
-          Sala 12
-        </p>
-
-        <a
-          href="https://share.google/cKwq3yIPoXt7yteLC"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-4 inline-block rounded-lg bg-slate-950 px-5 py-3 font-medium text-white hover:bg-slate-800"
-        >
-          🗺️ Abrir no Google Maps
-        </a>
-      </div>
+    
 
       <div className="rounded-2xl bg-slate-50 p-6">
         <p className="text-sm font-medium text-slate-500">
@@ -2131,15 +2110,7 @@ if (verificandoLogin) {
         </a>
       </div>
 
-      <div className="rounded-2xl bg-slate-50 p-6 md:col-span-2">
-        <p className="text-sm font-medium text-slate-500">
-          🏢 CNPJ
-        </p>
-
-        <p className="mt-2 font-semibold text-slate-900">
-          53.148.614/0001-81
-        </p>
-      </div>
+      
 
     </div>
   </div>
