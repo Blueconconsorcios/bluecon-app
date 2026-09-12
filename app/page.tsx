@@ -43,6 +43,7 @@ const [leadEditando, setLeadEditando] = useState<any | null>(null);
 const [buscaLead, setBuscaLead] = useState("");
 const [filtroProdutoLead, setFiltroProdutoLead] = useState("Todos");
 const [filtroEtapaLead, setFiltroEtapaLead] = useState("Todos");
+const [visualizacaoLeads, setVisualizacaoLeads] = useState<"lista" | "kanban">("lista");
 const [leadForm, setLeadForm] = useState({
   nome: "",
   telefone: "",
@@ -1991,7 +1992,29 @@ if (verificandoLogin) {
           {leads.length} lead{leads.length !== 1 ? "s" : ""}
         </span>
       </div>
+<div className="mt-4 flex gap-2">
+  <button
+    onClick={() => setVisualizacaoLeads("lista")}
+    className={`rounded-lg px-4 py-2 text-sm font-medium ${
+      visualizacaoLeads === "lista"
+        ? "bg-slate-900 text-white"
+        : "bg-slate-100 text-slate-700"
+    }`}
+  >
+    Lista
+  </button>
 
+  <button
+    onClick={() => setVisualizacaoLeads("kanban")}
+    className={`rounded-lg px-4 py-2 text-sm font-medium ${
+      visualizacaoLeads === "kanban"
+        ? "bg-slate-900 text-white"
+        : "bg-slate-100 text-slate-700"
+    }`}
+  >
+    Kanban
+  </button>
+</div>
       {carregandoLeads ? (
         <p className="mt-6 text-slate-500">
           Carregando leads...
@@ -2044,7 +2067,7 @@ if (verificandoLogin) {
 
 
 
-          {leadsFiltrados.map((lead) => (
+          {visualizacaoLeads === "lista" && leadsFiltrados.map((lead) => (
             <div
               key={lead.id}
               className="rounded-xl border p-4"
@@ -2106,6 +2129,85 @@ if (verificandoLogin) {
               </div>
             </div>
           ))}
+                  {visualizacaoLeads === "kanban" && (
+          <div className="mt-6 grid gap-4 md:grid-cols-3">
+
+            {["Em atendimento", "Proposta", "Convertido"].map((etapa) => {
+              const leadsDaEtapa = leadsFiltrados.filter(
+                (lead) => lead.etapa === etapa
+              );
+
+              return (
+                <div
+                  key={etapa}
+                  className="rounded-xl bg-slate-100 p-4"
+                >
+                  <div className="mb-4 flex items-center justify-between">
+                    <h4 className="font-semibold text-slate-800">
+                      {etapa}
+                    </h4>
+
+                    <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-600">
+                      {leadsDaEtapa.length}
+                    </span>
+                  </div>
+
+                  <div className="space-y-3">
+                    {leadsDaEtapa.length === 0 ? (
+                      <p className="rounded-lg border border-dashed bg-white p-4 text-center text-sm text-slate-400">
+                        Nenhum lead
+                      </p>
+                    ) : (
+                      leadsDaEtapa.map((lead) => (
+                        <div
+                          key={lead.id}
+                          className="rounded-xl border bg-white p-4 shadow-sm"
+                        >
+                          <p className="font-semibold text-slate-900">
+                            {lead.nome}
+                          </p>
+
+                          <p className="mt-1 text-sm text-slate-500">
+                            📞 {lead.telefone}
+                          </p>
+
+                          <p className="mt-1 text-sm text-slate-500">
+                            🛡️ {lead.produto}
+                          </p>
+
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            <button
+                              onClick={() => abrirEdicaoLead(lead)}
+                              className="rounded-lg bg-slate-200 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-300"
+                            >
+                              Editar
+                            </button>
+
+                            {lead.etapa !== "Convertido" && (
+                              <button
+                                onClick={() => abrirCadastroVenda(lead)}
+                                className="rounded-lg bg-green-600 px-3 py-2 text-xs font-medium text-white hover:bg-green-700"
+                              >
+                                Cadastrar venda
+                              </button>
+                            )}
+
+                            <button
+                              onClick={() => excluirLead(lead)}
+                              className="rounded-lg bg-red-100 px-3 py-2 text-xs font-medium text-red-700 hover:bg-red-200"
+                            >
+                              Excluir
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         </>
       )}
