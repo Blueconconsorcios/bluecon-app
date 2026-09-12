@@ -1325,7 +1325,7 @@ if (verificandoLogin) {
   vigencia_inicio: cliente.vigencia_inicio || "",
   vigencia_fim: cliente.vigencia_fim || "",
 });
-  setMenu("Novo Cliente");
+  setMenu("Cadastrar Venda");
 }}
   className="mt-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
 >
@@ -1577,7 +1577,7 @@ if (verificandoLogin) {
           });
 
           setClienteVisualizando(null);
-          setMenu("Novo Cliente");
+          setMenu("Cadastrar Venda");
         }}
         className="rounded-lg bg-blue-600 px-5 py-3 font-medium text-white hover:bg-blue-700"
       >
