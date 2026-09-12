@@ -39,6 +39,7 @@ export default function Home() {
 
 const [leads, setLeads] = useState<any[]>([]);
 const [novoLeadAberto, setNovoLeadAberto] = useState(false);
+const [leadEditando, setLeadEditando] = useState<any | null>(null);
 const [leadForm, setLeadForm] = useState({
   nome: "",
   telefone: "",
@@ -639,15 +640,34 @@ setClienteEditando(null);
       return;
     }
 
-    const { error } = await supabase
-      .from("leads")
-      .insert({
-        empresa_id: vinculoEmpresa.empresa_id,
-        nome: leadForm.nome.trim(),
-        telefone: leadForm.telefone.trim(),
-        produto: leadForm.produto,
-        etapa: leadForm.etapa,
-      });
+    let error;
+
+if (leadEditando) {
+  const resultado = await supabase
+    .from("leads")
+    .update({
+      nome: leadForm.nome.trim(),
+      telefone: leadForm.telefone.trim(),
+      produto: leadForm.produto,
+      etapa: leadForm.etapa,
+    })
+    .eq("id", leadEditando.id)
+    .eq("empresa_id", vinculoEmpresa.empresa_id);
+
+  error = resultado.error;
+} else {
+  const resultado = await supabase
+    .from("leads")
+    .insert({
+      empresa_id: vinculoEmpresa.empresa_id,
+      nome: leadForm.nome.trim(),
+      telefone: leadForm.telefone.trim(),
+      produto: leadForm.produto,
+      etapa: leadForm.etapa,
+    });
+
+  error = resultado.error;
+}
 
     if (error) {
       console.error("Erro ao cadastrar lead:", error);
@@ -665,12 +685,26 @@ setClienteEditando(null);
     });
 
     setNovoLeadAberto(false);
+    setLeadEditando(null);
 
     await carregarLeads();
   } catch (error) {
     console.error("Erro inesperado ao cadastrar lead:", error);
     setMensagem("Ocorreu um erro ao cadastrar o lead.");
   }
+}
+function abrirEdicaoLead(lead: any) {
+  setLeadEditando(lead);
+
+  setLeadForm({
+    nome: lead.nome || "",
+    telefone: lead.telefone || "",
+    produto: lead.produto || "Seguro Auto e Moto",
+    etapa: lead.etapa || "Em atendimento",
+  });
+
+  setNovoLeadAberto(true);
+  setMensagem("");
 }
 function abrirCadastroVenda(lead: any) {
   setLeadEmConversao(lead);
@@ -1879,11 +1913,14 @@ if (verificandoLogin) {
             onClick={salvarLead}
             className="rounded-lg bg-blue-600 px-6 py-3 font-medium text-white hover:bg-blue-700"
           >
-            Cadastrar Lead
+            {leadEditando ? "Salvar alterações" : "Cadastrar Lead"}
           </button>
 
           <button
-            onClick={() => setNovoLeadAberto(false)}
+            onClick={() => {
+  setNovoLeadAberto(false);
+  setLeadEditando(null);
+}}
             className="rounded-lg bg-slate-200 px-6 py-3 font-medium text-slate-700 hover:bg-slate-300"
           >
             Cancelar
@@ -1965,6 +2002,12 @@ if (verificandoLogin) {
                       Cadastrar venda
                     </button>
                   )}
+                  <button
+  onClick={() => abrirEdicaoLead(lead)}
+  className="rounded-lg bg-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-300"
+>
+  Editar
+</button>
 
                 </div>
 
