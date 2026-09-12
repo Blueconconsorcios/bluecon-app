@@ -40,6 +40,9 @@ export default function Home() {
 const [leads, setLeads] = useState<any[]>([]);
 const [novoLeadAberto, setNovoLeadAberto] = useState(false);
 const [leadEditando, setLeadEditando] = useState<any | null>(null);
+const [buscaLead, setBuscaLead] = useState("");
+const [filtroProdutoLead, setFiltroProdutoLead] = useState("Todos");
+const [filtroEtapaLead, setFiltroEtapaLead] = useState("Todos");
 const [leadForm, setLeadForm] = useState({
   nome: "",
   telefone: "",
@@ -911,6 +914,26 @@ if (verificandoLogin) {
     );
   }
 
+    const leadsFiltrados = leads.filter((lead) => {
+    const busca = buscaLead.trim().toLowerCase();
+
+    const correspondeBusca =
+      !busca ||
+      lead.nome?.toLowerCase().includes(busca) ||
+      lead.telefone?.toLowerCase().includes(busca);
+
+    const correspondeProduto =
+      filtroProdutoLead === "Todos" ||
+      lead.produto === filtroProdutoLead;
+
+    const correspondeEtapa =
+      filtroEtapaLead === "Todos" ||
+      lead.etapa === filtroEtapaLead;
+
+    return correspondeBusca && correspondeProduto && correspondeEtapa;
+  });
+
+  
   return (
     <main className="min-h-screen bg-slate-100 text-slate-900">
       <div className="flex min-h-screen">
@@ -1984,9 +2007,44 @@ if (verificandoLogin) {
           </p>
         </div>
       ) : (
-        <div className="mt-6 space-y-3">
+       <>
+        <div className="mb-5 grid gap-3 md:grid-cols-3">
+  <input
+    type="text"
+    value={buscaLead}
+    onChange={(e) => setBuscaLead(e.target.value)}
+    placeholder="Buscar por nome ou telefone..."
+    className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:border-slate-500"
+  />
 
-          {leads.map((lead) => (
+  <select
+    value={filtroProdutoLead}
+    onChange={(e) => setFiltroProdutoLead(e.target.value)}
+    className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:border-slate-500"
+  >
+    <option value="Todos">Todos os produtos</option>
+    <option value="Seguro Auto e Moto">Seguro Auto e Moto</option>
+    <option value="Seguro Empresarial">Seguro Empresarial</option>
+    <option value="Seguro de Vida">Seguro de Vida</option>
+    <option value="Seguro Celular">Seguro Celular</option>
+    <option value="Outros">Outros</option>
+  </select>
+
+  <select
+    value={filtroEtapaLead}
+    onChange={(e) => setFiltroEtapaLead(e.target.value)}
+    className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:border-slate-500"
+  >
+    <option value="Todos">Todas as etapas</option>
+    <option value="Em atendimento">Em atendimento</option>
+    <option value="Proposta">Proposta</option>
+    <option value="Convertido">Convertido</option>
+  </select>
+</div>
+
+
+
+          {leadsFiltrados.map((lead) => (
             <div
               key={lead.id}
               className="rounded-xl border p-4"
@@ -2049,7 +2107,7 @@ if (verificandoLogin) {
             </div>
           ))}
 
-        </div>
+        </>
       )}
 
     </div>
