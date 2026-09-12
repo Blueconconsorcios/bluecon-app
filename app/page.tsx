@@ -36,6 +36,18 @@ export default function Home() {
   vigencia_inicio: "",
   vigencia_fim: "",
 });
+
+const [leads, setLeads] = useState<any[]>([]);
+const [novoLeadAberto, setNovoLeadAberto] = useState(false);
+const [leadForm, setLeadForm] = useState({
+  nome: "",
+  telefone: "",
+  produto: "Seguro Auto e Moto",
+  etapa: "Em atendimento",
+});
+const [carregandoLeads, setCarregandoLeads] = useState(false);
+const [leadEmConversao, setLeadEmConversao] = useState<any | null>(null);
+
 const calcularAniversario = (dataNascimento: string) => {
   if (!dataNascimento) return null;
 
@@ -168,14 +180,15 @@ const renderLabelSeguradora = (props: any) => {
   );
 };
   const menuItems = [
-    "Dashboard",
-    "Clientes",
-    "Novo Cliente",
-    "Renovações",
-    "Comissões",
-    "Relatórios",
-    "Suporte à Corretora",
-  ];
+  "Dashboard",
+  "Clientes",
+  "Cadastrar Venda",
+  "Leads",
+  "Renovações",
+  "Comissões",
+  "Relatórios",
+  "Suporte à Corretora",
+];
 
   function atualizarCampo(
     campo: string,
@@ -400,6 +413,43 @@ async function carregarEmpresa() {
 
   setEmpresaNome(empresa.nome);
 }
+async function carregarLeads() {
+  setCarregandoLeads(true);
+
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return;
+
+    const { data: vinculoEmpresa, error: erroEmpresa } = await supabase
+      .from("usuarios_empresa")
+      .select("empresa_id")
+      .eq("id", user.id)
+      .single();
+
+    if (erroEmpresa || !vinculoEmpresa) {
+      console.error("Erro ao identificar empresa dos leads:", erroEmpresa);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("leads")
+      .select("*")
+      .eq("empresa_id", vinculoEmpresa.empresa_id)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Erro ao carregar leads:", error);
+      return;
+    }
+
+    setLeads(data || []);
+  } finally {
+    setCarregandoLeads(false);
+  }
+}
 useEffect(() => {
   async function verificarUsuario() {
     const {
@@ -431,8 +481,9 @@ if (!erroDadosAssinatura && dados && dados.length > 0) {
 
     await carregarEmpresa();
     await carregarClientes();
+    await carregarLeads();
 
-    setVerificandoLogin(false);
+setVerificandoLogin(false);
   }
 
   verificarUsuario();
@@ -446,6 +497,7 @@ if (!erroDadosAssinatura && dados && dados.length > 0) {
     }
 
     let error;
+let clienteCriadoId: string | null = null;
 
 const dadosCliente = {
   nome: form.nome,
@@ -492,15 +544,21 @@ if (clienteEditando) {
 
   // Criar cliente vinculado à empresa
   const resultado = await supabase
-    .from("clientes")
-    .insert([
-      {
-        ...dadosCliente,
-        empresa_id: vinculoEmpresa.empresa_id,
-      },
-    ]);
+  .from("clientes")
+  .insert([
+    {
+      ...dadosCliente,
+      empresa_id: vinculoEmpresa.empresa_id,
+    },
+  ])
+  .select("id")
+  .single();
 
-  error = resultado.error;
+error = resultado.error;
+
+if (!error && resultado.data) {
+  clienteCriadoId = resultado.data.id;
+}
 }
 
 
@@ -513,7 +571,25 @@ if (clienteEditando) {
     }
 
     setMensagem("✅ Cliente salvo com sucesso!");
-    setClienteEditando(null);
+
+if (!clienteEditando && leadEmConversao && clienteCriadoId) {
+  const { error: erroConversao } = await supabase
+    .from("leads")
+    .update({
+      etapa: "Convertido",
+      cliente_id: clienteCriadoId,
+    })
+    .eq("id", leadEmConversao.id);
+
+  if (erroConversao) {
+    console.error("Erro ao converter lead:", erroConversao);
+  } else {
+    await carregarLeads();
+    setLeadEmConversao(null);
+  }
+}
+
+setClienteEditando(null);
     await carregarClientes();
 
     setForm({
@@ -528,6 +604,93 @@ if (clienteEditando) {
       vigencia_fim: "",
     });
   }
+  async function salvarLead() {
+  setMensagem("");
+
+  if (!leadForm.nome.trim()) {
+    setMensagem("Digite o nome do lead.");
+    return;
+  }
+
+  if (!leadForm.telefone.trim()) {
+    setMensagem("Digite o telefone do lead.");
+    return;
+  }
+
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      setMensagem("Usuário não identificado.");
+      return;
+    }
+
+    const { data: vinculoEmpresa, error: erroEmpresa } = await supabase
+      .from("usuarios_empresa")
+      .select("empresa_id")
+      .eq("id", user.id)
+      .single();
+
+    if (erroEmpresa || !vinculoEmpresa) {
+      console.error("Erro ao identificar empresa do lead:", erroEmpresa);
+      setMensagem("Não foi possível identificar a empresa.");
+      return;
+    }
+
+    const { error } = await supabase
+      .from("leads")
+      .insert({
+        empresa_id: vinculoEmpresa.empresa_id,
+        nome: leadForm.nome.trim(),
+        telefone: leadForm.telefone.trim(),
+        produto: leadForm.produto,
+        etapa: leadForm.etapa,
+      });
+
+    if (error) {
+      console.error("Erro ao cadastrar lead:", error);
+      setMensagem("Erro ao cadastrar lead.");
+      return;
+    }
+
+    setMensagem("Lead cadastrado com sucesso!");
+
+    setLeadForm({
+      nome: "",
+      telefone: "",
+      produto: "Seguro Auto e Moto",
+      etapa: "Em atendimento",
+    });
+
+    setNovoLeadAberto(false);
+
+    await carregarLeads();
+  } catch (error) {
+    console.error("Erro inesperado ao cadastrar lead:", error);
+    setMensagem("Ocorreu um erro ao cadastrar o lead.");
+  }
+}
+function abrirCadastroVenda(lead: any) {
+  setLeadEmConversao(lead);
+  setClienteEditando(null);
+
+  setForm({
+    nome: lead.nome || "",
+    cpf: "",
+    telefone: lead.telefone || "",
+    data_nascimento: "",
+    seguradora: "",
+    premio_liquido: "",
+    percentual_comissao: "",
+    vigencia_inicio: "",
+    vigencia_fim: "",
+  });
+
+  setMenu("Cadastrar Venda");
+  setMensagem("");
+}
   async function renovarApolice() {
   setMensagem("");
 
@@ -759,6 +922,39 @@ if (verificandoLogin) {
     <p className="mt-1 text-slate-500">
       Aqui está o resumo da sua corretora.
     </p>
+    <div className="mt-6 grid gap-4 md:grid-cols-3">
+
+  <div className="rounded-2xl bg-white p-5 shadow-sm">
+    <p className="text-sm text-slate-500">
+      Total de Leads
+    </p>
+
+    <p className="mt-2 text-3xl font-bold text-slate-900">
+      {leads.length}
+    </p>
+  </div>
+
+  <div className="rounded-2xl bg-white p-5 shadow-sm">
+    <p className="text-sm text-slate-500">
+      Leads em atendimento
+    </p>
+
+    <p className="mt-2 text-3xl font-bold text-slate-900">
+      {leads.filter((lead) => lead.etapa === "Em atendimento").length}
+    </p>
+  </div>
+
+  <div className="rounded-2xl bg-white p-5 shadow-sm">
+    <p className="text-sm text-slate-500">
+      Leads em proposta
+    </p>
+
+    <p className="mt-2 text-3xl font-bold text-slate-900">
+      {leads.filter((lead) => lead.etapa === "Proposta").length}
+    </p>
+  </div>
+
+</div>
     {dadosAssinatura && (
   <div className="mt-6 rounded-2xl bg-white p-5 shadow-sm">
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1401,7 +1597,7 @@ if (verificandoLogin) {
     </div>
   </div>
 )}
-            {menu === "Novo Cliente" && (
+            {menu === "Cadastrar Venda" && (
               <div className="max-w-4xl rounded-2xl bg-white p-6 shadow-sm">
 
                 <h3 className="text-xl font-semibold">
@@ -1539,6 +1735,251 @@ if (verificandoLogin) {
 
               </div>
             )}
+            {menu === "Leads" && (
+  <div className="space-y-6">
+
+    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div>
+        <h2 className="text-2xl font-bold text-slate-900">
+          Leads 🎯
+        </h2>
+
+        <p className="mt-1 text-slate-500">
+          Gerencie suas oportunidades e acompanhe suas vendas.
+        </p>
+      </div>
+
+      <button
+        onClick={() => setNovoLeadAberto(!novoLeadAberto)}
+        className="rounded-lg bg-slate-950 px-5 py-3 font-medium text-white hover:bg-slate-800"
+      >
+        + Cadastrar novo lead
+      </button>
+    </div>
+
+    {novoLeadAberto && (
+      <div className="rounded-2xl bg-white p-6 shadow-sm">
+        <h3 className="text-xl font-semibold text-slate-900">
+          Cadastrar novo lead
+        </h3>
+
+        <div className="mt-6 grid gap-4 md:grid-cols-2">
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">
+              Nome
+            </label>
+
+            <input
+              type="text"
+              value={leadForm.nome}
+              onChange={(e) =>
+                setLeadForm({
+                  ...leadForm,
+                  nome: e.target.value,
+                })
+              }
+              placeholder="Nome completo"
+              className="w-full rounded-lg border p-3"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">
+              Telefone
+            </label>
+
+            <input
+              type="text"
+              value={leadForm.telefone}
+              onChange={(e) =>
+                setLeadForm({
+                  ...leadForm,
+                  telefone: e.target.value,
+                })
+              }
+              placeholder="Telefone / WhatsApp"
+              className="w-full rounded-lg border p-3"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">
+              Produto
+            </label>
+
+            <select
+              value={leadForm.produto}
+              onChange={(e) =>
+                setLeadForm({
+                  ...leadForm,
+                  produto: e.target.value,
+                })
+              }
+              className="w-full rounded-lg border p-3"
+            >
+              <option value="Seguro Auto e Moto">
+                Seguro Auto e Moto
+              </option>
+
+              <option value="Seguro Empresarial">
+                Seguro Empresarial
+              </option>
+
+              <option value="Seguro de Vida">
+                Seguro de Vida
+              </option>
+
+              <option value="Seguro Celular">
+                Seguro Celular
+              </option>
+
+              <option value="Outros">
+                Outros
+              </option>
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">
+              Etapa
+            </label>
+
+            <select
+              value={leadForm.etapa}
+              onChange={(e) =>
+                setLeadForm({
+                  ...leadForm,
+                  etapa: e.target.value,
+                })
+              }
+              className="w-full rounded-lg border p-3"
+            >
+              <option value="Em atendimento">
+                Em atendimento
+              </option>
+
+              <option value="Proposta">
+                Proposta
+              </option>
+            </select>
+          </div>
+
+        </div>
+
+        {mensagem && (
+          <div className="mt-5 rounded-lg border bg-slate-50 p-3 text-sm text-slate-700">
+            {mensagem}
+          </div>
+        )}
+
+        <div className="mt-6 flex gap-3">
+
+          <button
+            onClick={salvarLead}
+            className="rounded-lg bg-blue-600 px-6 py-3 font-medium text-white hover:bg-blue-700"
+          >
+            Cadastrar Lead
+          </button>
+
+          <button
+            onClick={() => setNovoLeadAberto(false)}
+            className="rounded-lg bg-slate-200 px-6 py-3 font-medium text-slate-700 hover:bg-slate-300"
+          >
+            Cancelar
+          </button>
+
+        </div>
+      </div>
+    )}
+
+    <div className="rounded-2xl bg-white p-6 shadow-sm">
+
+      <div className="flex items-center justify-between">
+        <h3 className="text-xl font-semibold text-slate-900">
+          Seus Leads
+        </h3>
+
+        <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-600">
+          {leads.length} lead{leads.length !== 1 ? "s" : ""}
+        </span>
+      </div>
+
+      {carregandoLeads ? (
+        <p className="mt-6 text-slate-500">
+          Carregando leads...
+        </p>
+      ) : leads.length === 0 ? (
+        <div className="mt-6 rounded-xl border border-dashed p-8 text-center">
+          <p className="font-medium text-slate-700">
+            Nenhum lead cadastrado.
+          </p>
+
+          <p className="mt-1 text-sm text-slate-500">
+            Clique em “Cadastrar novo lead” para começar.
+          </p>
+        </div>
+      ) : (
+        <div className="mt-6 space-y-3">
+
+          {leads.map((lead) => (
+            <div
+              key={lead.id}
+              className="rounded-xl border p-4"
+            >
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+
+                <div className="min-w-0">
+                  <p className="font-semibold text-slate-900">
+                    {lead.nome}
+                  </p>
+
+                  <p className="mt-1 text-sm text-slate-500">
+                    📞 {lead.telefone}
+                  </p>
+
+                  <p className="mt-1 text-sm text-slate-500">
+                    🛡️ {lead.produto}
+                  </p>
+                </div>
+
+                <div className="flex flex-col gap-3 md:items-end">
+
+                  <span
+                    className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold ${
+                      lead.etapa === "Convertido"
+                        ? "bg-green-100 text-green-700"
+                        : lead.etapa === "Proposta"
+                        ? "bg-yellow-100 text-yellow-700"
+                        : "bg-blue-100 text-blue-700"
+                    }`}
+                  >
+                    {lead.etapa}
+                  </span>
+
+                  {lead.etapa !== "Convertido" && (
+                    <button
+                      onClick={() => abrirCadastroVenda(lead)}
+                      className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+                    >
+                      Cadastrar venda
+                    </button>
+                  )}
+
+                </div>
+
+              </div>
+            </div>
+          ))}
+
+        </div>
+      )}
+
+    </div>
+
+  </div>
+)}
+
 {menu === "Renovar" && clienteEditando && (
   <div className="rounded-2xl bg-white p-6 shadow">
     <h2 className="mb-2 text-2xl font-bold">
