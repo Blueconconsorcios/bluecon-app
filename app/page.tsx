@@ -706,6 +706,33 @@ function abrirEdicaoLead(lead: any) {
   setNovoLeadAberto(true);
   setMensagem("");
 }
+async function excluirLead(lead: any) {
+  const confirmar = window.confirm(
+    `Deseja realmente excluir o lead "${lead.nome}"?`
+  );
+
+  if (!confirmar) return;
+
+  try {
+    const { error } = await supabase
+      .from("leads")
+      .delete()
+      .eq("id", lead.id)
+      .eq("empresa_id", lead.empresa_id);
+
+    if (error) {
+      console.error("Erro ao excluir lead:", error);
+      setMensagem("Ocorreu um erro ao excluir o lead.");
+      return;
+    }
+
+    await carregarLeads();
+    setMensagem("Lead excluído com sucesso.");
+  } catch (error) {
+    console.error("Erro inesperado ao excluir lead:", error);
+    setMensagem("Ocorreu um erro inesperado ao excluir o lead.");
+  }
+}
 function abrirCadastroVenda(lead: any) {
   setLeadEmConversao(lead);
   setClienteEditando(null);
@@ -2007,6 +2034,13 @@ if (verificandoLogin) {
   className="rounded-lg bg-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-300"
 >
   Editar
+</button>
+
+<button
+  onClick={() => excluirLead(lead)}
+  className="rounded-lg bg-red-100 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-200"
+>
+  Excluir
 </button>
 
                 </div>
