@@ -1350,7 +1350,7 @@ if (verificandoLogin) {
               
 
                 <button
-                  onClick={() => setMenu("Novo Cliente")}
+                  onClick={() => setMenu("Cadastrar Venda")}
                   className="mt-6 rounded-lg bg-slate-950 px-5 py-3 font-medium text-white"
                 >
                   + Novo Cliente
